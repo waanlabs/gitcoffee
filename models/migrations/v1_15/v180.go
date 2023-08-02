@@ -44,25 +44,25 @@ func DeleteMigrationCredentials(x *xorm.Engine) (err error) {
 
 	for start := 0; ; start += batchSize {
 		tasks := make([]*Task, 0, batchSize)
-		if err := sess.Limit(batchSize, start).Where(cond, 0).Find(&tasks); err != nil {
-			return err
+		if err = sess.Limit(batchSize, start).Where(cond, 0).Find(&tasks); err != nil {
+			return
 		}
 		if len(tasks) == 0 {
 			break
 		}
-		if err := sess.Begin(); err != nil {
-			return err
+		if err = sess.Begin(); err != nil {
+			return
 		}
 		for _, t := range tasks {
 			if t.PayloadContent, err = removeCredentials(t.PayloadContent); err != nil {
-				return err
+				return
 			}
-			if _, err := sess.ID(t.ID).Cols("payload_content").Update(t); err != nil {
-				return err
+			if _, err = sess.ID(t.ID).Cols("payload_content").Update(t); err != nil {
+				return
 			}
 		}
-		if err := sess.Commit(); err != nil {
-			return err
+		if err = sess.Commit(); err != nil {
+			return
 		}
 	}
 	return err

@@ -64,6 +64,7 @@
 package v1
 
 import (
+	gocontext "context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -386,7 +387,7 @@ func reqRepoWriter(unitTypes ...unit.Type) func(ctx *context.APIContext) {
 // reqRepoBranchWriter user should have a permission to write to a branch, or be a site admin
 func reqRepoBranchWriter(ctx *context.APIContext) {
 	options, ok := web.GetForm(ctx).(api.FileOptionInterface)
-	if !ok || (!ctx.Repo.CanWriteToBranch(ctx, ctx.Doer, options.Branch()) && !ctx.IsUserSiteAdmin()) {
+	if !ok || (!ctx.Repo.CanWriteToBranch(ctx.Doer, options.Branch()) && !ctx.IsUserSiteAdmin()) {
 		ctx.Error(http.StatusForbidden, "reqRepoBranchWriter", "user should have a permission to write to this branch")
 		return
 	}
@@ -704,7 +705,7 @@ func buildAuthGroup() *auth.Group {
 }
 
 // Routes registers all v1 APIs routes to web application.
-func Routes() *web.Route {
+func Routes(ctx gocontext.Context) *web.Route {
 	m := web.NewRoute()
 
 	m.Use(securityHeaders())
@@ -721,8 +722,13 @@ func Routes() *web.Route {
 	}
 	m.Use(context.APIContexter())
 
+	group := buildAuthGroup()
+	if err := group.Init(ctx); err != nil {
+		log.Error("Could not initialize '%s' auth method, error: %s", group.Name(), err)
+	}
+
 	// Get user from session if logged in.
-	m.Use(auth.APIAuth(buildAuthGroup()))
+	m.Use(auth.APIAuth(group))
 
 	m.Use(auth.VerifyAuthWithOptionsAPI(&auth.VerifyOptions{
 		SignInRequired: setting.Service.RequireSignInView,
@@ -899,11 +905,6 @@ func Routes() *web.Route {
 					Patch(bind(api.EditHookOption{}), user.EditHook).
 					Delete(user.DeleteHook)
 			}, reqWebhooksEnabled())
-
-			m.Group("/avatar", func() {
-				m.Post("", bind(api.UpdateUserAvatarOption{}), user.UpdateAvatar)
-				m.Delete("", user.DeleteAvatar)
-			}, reqToken())
 		}, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryUser), reqToken())
 
 		// Repositories (requires repo scope, org scope)
@@ -1139,10 +1140,6 @@ func Routes() *web.Route {
 				m.Get("/languages", reqRepoReader(unit.TypeCode), repo.GetLanguages)
 				m.Get("/activities/feeds", repo.ListRepoActivityFeeds)
 				m.Get("/new_pin_allowed", repo.AreNewIssuePinsAllowed)
-				m.Group("/avatar", func() {
-					m.Post("", bind(api.UpdateRepoAvatarOption{}), repo.UpdateAvatar)
-					m.Delete("", repo.DeleteAvatar)
-				}, reqAdmin(), reqToken())
 			}, repoAssignment())
 		}, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryRepository))
 
@@ -1323,10 +1320,6 @@ func Routes() *web.Route {
 					Patch(bind(api.EditHookOption{}), org.EditHook).
 					Delete(org.DeleteHook)
 			}, reqToken(), reqOrgOwnership(), reqWebhooksEnabled())
-			m.Group("/avatar", func() {
-				m.Post("", bind(api.UpdateUserAvatarOption{}), org.UpdateAvatar)
-				m.Delete("", org.DeleteAvatar)
-			}, reqToken(), reqOrgOwnership())
 			m.Get("/activities/feeds", org.ListOrgActivityFeeds)
 		}, tokenRequiresScopes(auth_model.AccessTokenScopeCategoryOrganization), orgAssignment(true))
 		m.Group("/teams/{teamid}", func() {

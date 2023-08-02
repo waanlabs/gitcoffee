@@ -39,7 +39,7 @@ func TestIssueList_LoadAttributes(t *testing.T) {
 		unittest.AssertExistsAndLoadBean(t, &issues_model.Issue{ID: 4}),
 	}
 
-	assert.NoError(t, issueList.LoadAttributes(db.DefaultContext))
+	assert.NoError(t, issueList.LoadAttributes())
 	for _, issue := range issueList {
 		assert.EqualValues(t, issue.RepoID, issue.Repo.ID)
 		for _, label := range issue.Labels {

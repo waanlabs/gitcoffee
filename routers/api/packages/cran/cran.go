@@ -249,7 +249,7 @@ func downloadPackageFile(ctx *context.Context, opts *cran_model.SearchOptions) {
 		return
 	}
 
-	s, u, _, err := packages_service.GetPackageFileStream(ctx, pf)
+	s, _, err := packages_service.GetPackageFileStream(ctx, pf)
 	if err != nil {
 		if errors.Is(err, util.ErrNotExist) {
 			apiError(ctx, http.StatusNotFound, err)
@@ -258,6 +258,10 @@ func downloadPackageFile(ctx *context.Context, opts *cran_model.SearchOptions) {
 		}
 		return
 	}
+	defer s.Close()
 
-	helper.ServePackageFile(ctx, s, u, pf)
+	ctx.ServeContent(s, &context.ServeHeaderOptions{
+		Filename:     pf.Name,
+		LastModified: pf.CreatedUnix.AsLocalTime(),
+	})
 }

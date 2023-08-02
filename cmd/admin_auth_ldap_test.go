@@ -11,7 +11,7 @@ import (
 	"code.gitea.io/gitea/services/auth/source/ldap"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli"
 )
 
 func TestAddLdapBindDn(t *testing.T) {

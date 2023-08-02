@@ -2,9 +2,7 @@ import $ from 'jquery';
 import {updateIssuesMeta} from './repo-issue.js';
 import {toggleElem} from '../utils/dom.js';
 import {htmlEscape} from 'escape-goat';
-import {confirmModal} from './comp/ConfirmModal.js';
-import {showErrorToast} from '../modules/toast.js';
-import {createSortable} from '../modules/sortable.js';
+import {Sortable} from 'sortablejs';
 
 function initRepoIssueListCheckboxes() {
   const $issueSelectAll = $('.issue-checkbox-all');
@@ -38,36 +36,19 @@ function initRepoIssueListCheckboxes() {
 
   $('.issue-action').on('click', async function (e) {
     e.preventDefault();
-
-    const url = this.getAttribute('data-url');
     let action = this.getAttribute('data-action');
     let elementId = this.getAttribute('data-element-id');
-    let issueIDs = [];
-    for (const el of document.querySelectorAll('.issue-checkbox:checked')) {
-      issueIDs.push(el.getAttribute('data-issue-id'));
-    }
-    issueIDs = issueIDs.join(',');
-    if (!issueIDs) return;
-
-    // for assignee
-    if (elementId === '0' && url.endsWith('/assignee')) {
+    const url = this.getAttribute('data-url');
+    const issueIDs = $('.issue-checkbox:checked').map((_, el) => {
+      return el.getAttribute('data-issue-id');
+    }).get().join(',');
+    if (elementId === '0' && url.slice(-9) === '/assignee') {
       elementId = '';
       action = 'clear';
     }
-
-    // for toggle
     if (action === 'toggle' && e.altKey) {
       action = 'toggle-alt';
     }
-
-    // for delete
-    if (action === 'delete') {
-      const confirmText = e.target.getAttribute('data-action-delete-confirm');
-      if (!await confirmModal({content: confirmText, buttonColor: 'orange'})) {
-        return;
-      }
-    }
-
     updateIssuesMeta(
       url,
       action,
@@ -76,7 +57,7 @@ function initRepoIssueListCheckboxes() {
     ).then(() => {
       window.location.reload();
     }).catch((reason) => {
-      showErrorToast(reason.responseJSON.error);
+      window.alert(reason.responseJSON.error);
     });
   });
 }
@@ -128,7 +109,7 @@ function initRepoIssueListAuthorDropdown() {
     if (newMenuHtml) {
       const $newMenuItems = $(newMenuHtml);
       $newMenuItems.addClass('dynamic-item');
-      $menu.append('<div class="divider dynamic-item"></div>', ...$newMenuItems);
+      $menu.append('<div class="ui divider dynamic-item"></div>', ...$newMenuItems);
     }
     $searchDropdown.dropdown('refresh');
     // defer our selection to the next tick, because dropdown will set the selection item after this `menu` function
@@ -176,7 +157,7 @@ async function pinMoveEnd(e) {
   });
 }
 
-async function initIssuePinSort() {
+function initIssuePinSort() {
   const pinDiv = document.getElementById('issue-pins');
 
   if (pinDiv === null) return;
@@ -189,7 +170,7 @@ async function initIssuePinSort() {
   // If only one issue pinned, we don't need to make this Sortable
   if (pinDiv.children.length < 2) return;
 
-  createSortable(pinDiv, {
+  new Sortable(pinDiv, {
     group: 'shared',
     animation: 150,
     ghostClass: 'card-ghost',

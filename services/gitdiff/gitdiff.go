@@ -779,7 +779,7 @@ func skipToNextDiffHead(input *bufio.Reader) (line string, err error) {
 	for {
 		lineBytes, isFragment, err = input.ReadLine()
 		if err != nil {
-			return "", err
+			return
 		}
 		if wasFragment {
 			wasFragment = isFragment
@@ -795,7 +795,7 @@ func skipToNextDiffHead(input *bufio.Reader) (line string, err error) {
 		var tail string
 		tail, err = input.ReadString('\n')
 		if err != nil {
-			return "", err
+			return
 		}
 		line += tail
 	}
@@ -821,21 +821,22 @@ func parseHunks(curFile *DiffFile, maxLines, maxLineCharacters int, input *bufio
 			_, isFragment, err = input.ReadLine()
 			if err != nil {
 				// Now by the definition of ReadLine this cannot be io.EOF
-				return nil, false, fmt.Errorf("unable to ReadLine: %w", err)
+				err = fmt.Errorf("unable to ReadLine: %w", err)
+				return
 			}
 		}
 		sb.Reset()
 		lineBytes, isFragment, err = input.ReadLine()
 		if err != nil {
 			if err == io.EOF {
-				return lineBytes, isFragment, err
+				return
 			}
 			err = fmt.Errorf("unable to ReadLine: %w", err)
-			return nil, false, err
+			return
 		}
 		if lineBytes[0] == 'd' {
 			// End of hunks
-			return lineBytes, isFragment, err
+			return
 		}
 
 		switch lineBytes[0] {
@@ -852,7 +853,8 @@ func parseHunks(curFile *DiffFile, maxLines, maxLineCharacters int, input *bufio
 				lineBytes, isFragment, err = input.ReadLine()
 				if err != nil {
 					// Now by the definition of ReadLine this cannot be io.EOF
-					return nil, false, fmt.Errorf("unable to ReadLine: %w", err)
+					err = fmt.Errorf("unable to ReadLine: %w", err)
+					return
 				}
 				_, _ = sb.Write(lineBytes)
 			}
@@ -882,7 +884,8 @@ func parseHunks(curFile *DiffFile, maxLines, maxLineCharacters int, input *bufio
 			}
 			// This is used only to indicate that the current file does not have a terminal newline
 			if !bytes.Equal(lineBytes, []byte("\\ No newline at end of file")) {
-				return nil, false, fmt.Errorf("unexpected line in hunk: %s", string(lineBytes))
+				err = fmt.Errorf("unexpected line in hunk: %s", string(lineBytes))
+				return
 			}
 			// Technically this should be the end the file!
 			// FIXME: we should be putting a marker at the end of the file if there is no terminal new line
@@ -950,7 +953,8 @@ func parseHunks(curFile *DiffFile, maxLines, maxLineCharacters int, input *bufio
 			curSection.Lines = append(curSection.Lines, diffLine)
 		default:
 			// This is unexpected
-			return nil, false, fmt.Errorf("unexpected line in hunk: %s", string(lineBytes))
+			err = fmt.Errorf("unexpected line in hunk: %s", string(lineBytes))
+			return
 		}
 
 		line := string(lineBytes)
@@ -961,7 +965,8 @@ func parseHunks(curFile *DiffFile, maxLines, maxLineCharacters int, input *bufio
 				lineBytes, isFragment, err = input.ReadLine()
 				if err != nil {
 					// Now by the definition of ReadLine this cannot be io.EOF
-					return lineBytes, isFragment, fmt.Errorf("unable to ReadLine: %w", err)
+					err = fmt.Errorf("unable to ReadLine: %w", err)
+					return
 				}
 			}
 		}
@@ -1216,42 +1221,6 @@ func GetDiff(gitRepo *git.Repository, opts *DiffOptions, files ...string) (*Diff
 		// previously it would return the results of git diff --shortstat base head so let's try that...
 		diffPaths = []string{opts.BeforeCommitID, opts.AfterCommitID}
 		diff.NumFiles, diff.TotalAddition, diff.TotalDeletion, err = git.GetDiffShortStat(gitRepo.Ctx, repoPath, nil, diffPaths...)
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	return diff, nil
-}
-
-type PullDiffStats struct {
-	TotalAddition, TotalDeletion int
-}
-
-// GetPullDiffStats
-func GetPullDiffStats(gitRepo *git.Repository, opts *DiffOptions) (*PullDiffStats, error) {
-	repoPath := gitRepo.Path
-
-	diff := &PullDiffStats{}
-
-	separator := "..."
-	if opts.DirectComparison {
-		separator = ".."
-	}
-
-	diffPaths := []string{opts.BeforeCommitID + separator + opts.AfterCommitID}
-	if len(opts.BeforeCommitID) == 0 || opts.BeforeCommitID == git.EmptySHA {
-		diffPaths = []string{git.EmptyTreeSHA, opts.AfterCommitID}
-	}
-
-	var err error
-
-	_, diff.TotalAddition, diff.TotalDeletion, err = git.GetDiffShortStat(gitRepo.Ctx, repoPath, nil, diffPaths...)
-	if err != nil && strings.Contains(err.Error(), "no merge base") {
-		// git >= 2.28 now returns an error if base and head have become unrelated.
-		// previously it would return the results of git diff --shortstat base head so let's try that...
-		diffPaths = []string{opts.BeforeCommitID, opts.AfterCommitID}
-		_, diff.TotalAddition, diff.TotalDeletion, err = git.GetDiffShortStat(gitRepo.Ctx, repoPath, nil, diffPaths...)
 	}
 	if err != nil {
 		return nil, err

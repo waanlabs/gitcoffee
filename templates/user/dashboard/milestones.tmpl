@@ -9,7 +9,7 @@
 						{{.locale.Tr "home.issues.in_your_repos"}}
 						<strong class="ui right">{{.Total}}</strong>
 					</div>
-					<div class="divider"></div>
+					<div class="ui divider"></div>
 					{{range .Repos}}
 						{{with $Repo := .}}
 							<a class="{{range $.RepoIDs}}{{if eq . $Repo.ID}}active{{end}}{{end}} repo name item" href="{{$.Link}}?repos=[
@@ -51,7 +51,7 @@
 							<input type="hidden" name="repos" value="[{{range $.RepoIDs}}{{.}},{{end}}]">
 							<input type="hidden" name="sort" value="{{$.SortType}}">
 							<input type="hidden" name="state" value="{{$.State}}">
-							{{template "shared/searchinput" dict "locale" .locale "Value" $.Keyword}}
+							<input name="q" value="{{$.Keyword}}" placeholder="{{.locale.Tr "explore.search"}}...">
 							<button class="ui small icon button" type="submit" aria-label="{{.locale.Tr "explore.search"}}">{{svg "octicon-search"}}</button>
 						</div>
 					</form>

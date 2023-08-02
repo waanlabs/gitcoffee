@@ -15,9 +15,7 @@ import (
 // 1563418		-> 2 weeks 4 days
 // 3937125s     -> 1 month 2 weeks
 // 45677465s	-> 1 year 6 months
-func SecToTime(durationVal any) string {
-	duration, _ := ToInt64(durationVal)
-
+func SecToTime(duration int64) string {
 	formattedTime := ""
 
 	// The following four variables are calculated by taking

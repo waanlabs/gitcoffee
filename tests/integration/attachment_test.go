@@ -83,7 +83,7 @@ func TestCreateIssueAttachment(t *testing.T) {
 	}
 
 	req = NewRequestWithValues(t, "POST", link, postData)
-	resp = session.MakeRequest(t, req, http.StatusOK)
+	resp = session.MakeRequest(t, req, http.StatusSeeOther)
 	test.RedirectURL(resp) // check that redirect URL exists
 
 	// Validate that attachment is available

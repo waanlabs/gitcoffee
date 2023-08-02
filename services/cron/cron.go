@@ -14,10 +14,10 @@ import (
 	"code.gitea.io/gitea/modules/sync"
 	"code.gitea.io/gitea/modules/translation"
 
-	"github.com/go-co-op/gocron"
+	"github.com/gogs/cron"
 )
 
-var scheduler = gocron.NewScheduler(time.Local)
+var c = cron.New()
 
 // Prevent duplicate running tasks.
 var taskStatusTable = sync.NewStatusTable()
@@ -39,11 +39,11 @@ func NewContext(original context.Context) {
 		}
 	}
 
-	scheduler.StartAsync()
+	c.Start()
 	started = true
 	lock.Unlock()
 	graceful.GetManager().RunAtShutdown(context.Background(), func() {
-		scheduler.Stop()
+		c.Stop()
 		lock.Lock()
 		started = false
 		lock.Unlock()
@@ -77,20 +77,13 @@ type TaskTable []*TaskTableRow
 
 // ListTasks returns all running cron tasks.
 func ListTasks() TaskTable {
-	jobs := scheduler.Jobs()
-	jobMap := map[string]*gocron.Job{}
-	for _, job := range jobs {
-		// the first tag is the task name
-		tags := job.Tags()
-		if len(tags) == 0 { // should never happen
-			continue
-		}
-		jobMap[job.Tags()[0]] = job
+	entries := c.Entries()
+	eMap := map[string]*cron.Entry{}
+	for _, e := range entries {
+		eMap[e.Description] = e
 	}
-
 	lock.Lock()
 	defer lock.Unlock()
-
 	tTable := make([]*TaskTableRow, 0, len(tasks))
 	for _, task := range tasks {
 		spec := "-"
@@ -98,13 +91,10 @@ func ListTasks() TaskTable {
 			next time.Time
 			prev time.Time
 		)
-		if e, ok := jobMap[task.Name]; ok {
-			tags := e.Tags()
-			if len(tags) > 1 {
-				spec = tags[1] // the second tag is the task spec
-			}
-			next = e.NextRun()
-			prev = e.PreviousRun()
+		if e, ok := eMap[task.Name]; ok {
+			spec = e.Spec
+			next = e.Next
+			prev = e.Prev
 		}
 		task.lock.Lock()
 		tTable = append(tTable, &TaskTableRow{

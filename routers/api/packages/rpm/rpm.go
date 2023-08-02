@@ -65,7 +65,7 @@ func GetRepositoryFile(ctx *context.Context) {
 		return
 	}
 
-	s, u, pf, err := packages_service.GetFileStreamByPackageVersion(
+	s, pf, err := packages_service.GetFileStreamByPackageVersion(
 		ctx,
 		pv,
 		&packages_service.PackageFileInfo{
@@ -80,8 +80,12 @@ func GetRepositoryFile(ctx *context.Context) {
 		}
 		return
 	}
+	defer s.Close()
 
-	helper.ServePackageFile(ctx, s, u, pf)
+	ctx.ServeContent(s, &context.ServeHeaderOptions{
+		Filename:     pf.Name,
+		LastModified: pf.CreatedUnix.AsLocalTime(),
+	})
 }
 
 func UploadPackageFile(ctx *context.Context) {
@@ -169,7 +173,7 @@ func DownloadPackageFile(ctx *context.Context) {
 	name := ctx.Params("name")
 	version := ctx.Params("version")
 
-	s, u, pf, err := packages_service.GetFileStreamByPackageNameAndVersion(
+	s, pf, err := packages_service.GetFileStreamByPackageNameAndVersion(
 		ctx,
 		&packages_service.PackageInfo{
 			Owner:       ctx.Package.Owner,
@@ -189,8 +193,13 @@ func DownloadPackageFile(ctx *context.Context) {
 		}
 		return
 	}
+	defer s.Close()
 
-	helper.ServePackageFile(ctx, s, u, pf)
+	ctx.ServeContent(s, &context.ServeHeaderOptions{
+		ContentType:  "application/x-rpm",
+		Filename:     pf.Name,
+		LastModified: pf.CreatedUnix.AsLocalTime(),
+	})
 }
 
 func DeletePackageFile(webctx *context.Context) {

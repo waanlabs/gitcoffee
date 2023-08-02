@@ -15,7 +15,7 @@ import (
 	"code.gitea.io/gitea/modules/timeutil"
 	"code.gitea.io/gitea/modules/util"
 
-	lru "github.com/hashicorp/golang-lru/v2"
+	lru "github.com/hashicorp/golang-lru"
 )
 
 // ErrAccessTokenNotExist represents a "AccessTokenNotExist" kind of error.
@@ -54,7 +54,7 @@ func (err ErrAccessTokenEmpty) Unwrap() error {
 	return util.ErrInvalidArgument
 }
 
-var successfulAccessTokenCache *lru.Cache[string, any]
+var successfulAccessTokenCache *lru.Cache
 
 // AccessToken represents a personal access token.
 type AccessToken struct {
@@ -83,7 +83,7 @@ func init() {
 	db.RegisterModel(new(AccessToken), func() error {
 		if setting.SuccessfulTokensCacheSize > 0 {
 			var err error
-			successfulAccessTokenCache, err = lru.New[string, any](setting.SuccessfulTokensCacheSize)
+			successfulAccessTokenCache, err = lru.New(setting.SuccessfulTokensCacheSize)
 			if err != nil {
 				return fmt.Errorf("unable to allocate AccessToken cache: %w", err)
 			}
@@ -154,16 +154,16 @@ func GetAccessTokenBySHA(token string) (*AccessToken, error) {
 	lastEight := token[len(token)-8:]
 
 	if id := getAccessTokenIDFromCache(token); id > 0 {
-		accessToken := &AccessToken{
+		token := &AccessToken{
 			TokenLastEight: lastEight,
 		}
 		// Re-get the token from the db in case it has been deleted in the intervening period
-		has, err := db.GetEngine(db.DefaultContext).ID(id).Get(accessToken)
+		has, err := db.GetEngine(db.DefaultContext).ID(id).Get(token)
 		if err != nil {
 			return nil, err
 		}
 		if has {
-			return accessToken, nil
+			return token, nil
 		}
 		successfulAccessTokenCache.Remove(token)
 	}

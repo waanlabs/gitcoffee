@@ -4,12 +4,14 @@
 package integration
 
 import (
+	"fmt"
 	"net/http"
 	"testing"
 
 	auth_model "code.gitea.io/gitea/models/auth"
 	"code.gitea.io/gitea/models/unittest"
 	user_model "code.gitea.io/gitea/models/user"
+	"code.gitea.io/gitea/modules/setting"
 	api "code.gitea.io/gitea/modules/structs"
 	"code.gitea.io/gitea/tests"
 
@@ -52,7 +54,11 @@ func TestAPIUserSearchNotLoggedIn(t *testing.T) {
 	for _, user := range results.Data {
 		assert.Contains(t, user.UserName, query)
 		modelUser = unittest.AssertExistsAndLoadBean(t, &user_model.User{ID: user.ID})
-		assert.EqualValues(t, modelUser.GetPlaceholderEmail(), user.Email)
+		if modelUser.KeepEmailPrivate {
+			assert.EqualValues(t, fmt.Sprintf("%s@%s", modelUser.LowerName, setting.Service.NoReplyAddress), user.Email)
+		} else {
+			assert.EqualValues(t, modelUser.Email, user.Email)
+		}
 	}
 }
 

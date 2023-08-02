@@ -11,8 +11,6 @@ import (
 
 	"code.gitea.io/gitea/modules/graceful"
 	"code.gitea.io/gitea/modules/process"
-	"code.gitea.io/gitea/modules/web"
-	web_types "code.gitea.io/gitea/modules/web/types"
 )
 
 // PrivateContext represents a context for private routes
@@ -21,12 +19,6 @@ type PrivateContext struct {
 	Override context.Context
 
 	Repo *Repository
-}
-
-func init() {
-	web.RegisterResponseStatusProvider[*PrivateContext](func(req *http.Request) web_types.ResponseStatusProvider {
-		return req.Context().Value(privateContextKey).(*PrivateContext)
-	})
 }
 
 // Deadline is part of the interface for context.Context and we pass this to the request context

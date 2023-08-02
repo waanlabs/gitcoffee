@@ -227,7 +227,9 @@ func DeleteEmail(ctx *context.Context) {
 	log.Trace("Email address deleted: %s", ctx.Doer.Name)
 
 	ctx.Flash.Success(ctx.Tr("settings.email_deletion_success"))
-	ctx.JSONRedirect(setting.AppSubURL + "/user/settings/account")
+	ctx.JSON(http.StatusOK, map[string]any{
+		"redirect": setting.AppSubURL + "/user/settings/account",
+	})
 }
 
 // DeleteAccount render user suicide page and response for delete user himself

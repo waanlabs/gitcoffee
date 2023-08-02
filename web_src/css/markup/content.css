@@ -481,7 +481,10 @@
 .markup pre code,
 .markup pre tt {
   display: inline;
+  max-width: initial;
   padding: 0;
+  margin: 0;
+  overflow: initial;
   line-height: inherit;
   word-wrap: normal;
   background-color: transparent;
@@ -555,27 +558,4 @@
   margin-top: 0 !important;
   border-top-left-radius: 0 !important;
   border-top-right-radius: 0 !important;
-}
-
-.file-view.markup.orgmode li.unchecked::before {
-  content: "[ ] ";
-}
-
-.file-view.markup.orgmode li.checked::before {
-  content: "[x] ";
-}
-
-.file-view.markup.orgmode li.indeterminate::before {
-  content: "[-] ";
-}
-
-/* This is only needed for <p> because they are literally acting as paragraphs,
- * and thus having an ::before on the same line would force the paragraph to
- * move to the next line. This can be avoided by an inline-block display that
- * avoids that property while still having the other properties of the block
- * display. */
-.file-view.markup.orgmode li.unchecked > p,
-.file-view.markup.orgmode li.checked > p,
-.file-view.markup.orgmode li.indeterminate > p {
-  display: inline-block;
 }

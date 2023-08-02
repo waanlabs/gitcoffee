@@ -6,7 +6,6 @@ package issues
 import (
 	"context"
 	"errors"
-	"fmt"
 	"time"
 
 	"code.gitea.io/gitea/models/db"
@@ -43,7 +42,11 @@ func (t *TrackedTime) AfterLoad() {
 }
 
 // LoadAttributes load Issue, User
-func (t *TrackedTime) LoadAttributes(ctx context.Context) (err error) {
+func (t *TrackedTime) LoadAttributes() (err error) {
+	return t.loadAttributes(db.DefaultContext)
+}
+
+func (t *TrackedTime) loadAttributes(ctx context.Context) (err error) {
 	// Load the issue
 	if t.Issue == nil {
 		t.Issue, err = GetIssueByID(ctx, t.IssueID)
@@ -72,9 +75,9 @@ func (t *TrackedTime) LoadAttributes(ctx context.Context) (err error) {
 }
 
 // LoadAttributes load Issue, User
-func (tl TrackedTimeList) LoadAttributes(ctx context.Context) error {
+func (tl TrackedTimeList) LoadAttributes() error {
 	for _, t := range tl {
-		if err := t.LoadAttributes(ctx); err != nil {
+		if err := t.LoadAttributes(); err != nil {
 			return err
 		}
 	}
@@ -139,8 +142,8 @@ func GetTrackedTimes(ctx context.Context, options *FindTrackedTimesOptions) (tra
 }
 
 // CountTrackedTimes returns count of tracked times that fit to the given options.
-func CountTrackedTimes(ctx context.Context, opts *FindTrackedTimesOptions) (int64, error) {
-	sess := db.GetEngine(ctx).Where(opts.toCond())
+func CountTrackedTimes(opts *FindTrackedTimesOptions) (int64, error) {
+	sess := db.GetEngine(db.DefaultContext).Where(opts.toCond())
 	if opts.RepositoryID > 0 || opts.MilestoneID > 0 {
 		sess = sess.Join("INNER", "issue", "issue.id = tracked_time.issue_id")
 	}
@@ -153,8 +156,8 @@ func GetTrackedSeconds(ctx context.Context, opts FindTrackedTimesOptions) (track
 }
 
 // AddTime will add the given time (in seconds) to the issue
-func AddTime(ctx context.Context, user *user_model.User, issue *Issue, amount int64, created time.Time) (*TrackedTime, error) {
-	ctx, committer, err := db.TxContext(ctx)
+func AddTime(user *user_model.User, issue *Issue, amount int64, created time.Time) (*TrackedTime, error) {
+	ctx, committer, err := db.TxContext(db.DefaultContext)
 	if err != nil {
 		return nil, err
 	}
@@ -170,12 +173,10 @@ func AddTime(ctx context.Context, user *user_model.User, issue *Issue, amount in
 	}
 
 	if _, err := CreateComment(ctx, &CreateCommentOptions{
-		Issue: issue,
-		Repo:  issue.Repo,
-		Doer:  user,
-		// Content before v1.21 did store the formated string instead of seconds,
-		// so use "|" as delimeter to mark the new format
-		Content: fmt.Sprintf("|%d", amount),
+		Issue:   issue,
+		Repo:    issue.Repo,
+		Doer:    user,
+		Content: util.SecToTime(amount),
 		Type:    CommentTypeAddTimeManual,
 		TimeID:  t.ID,
 	}); err != nil {
@@ -198,8 +199,8 @@ func addTime(ctx context.Context, user *user_model.User, issue *Issue, amount in
 	return tt, db.Insert(ctx, tt)
 }
 
-// TotalTimes returns the spent time in seconds for each user by an issue
-func TotalTimes(options *FindTrackedTimesOptions) (map[*user_model.User]int64, error) {
+// TotalTimes returns the spent time for each user by an issue
+func TotalTimes(options *FindTrackedTimesOptions) (map[*user_model.User]string, error) {
 	trackedTimes, err := GetTrackedTimes(db.DefaultContext, options)
 	if err != nil {
 		return nil, err
@@ -210,7 +211,7 @@ func TotalTimes(options *FindTrackedTimesOptions) (map[*user_model.User]int64, e
 		totalTimesByUser[t.UserID] += t.Time
 	}
 
-	totalTimes := make(map[*user_model.User]int64)
+	totalTimes := make(map[*user_model.User]string)
 	// Fetching User and making time human readable
 	for userID, total := range totalTimesByUser {
 		user, err := user_model.GetUserByID(db.DefaultContext, userID)
@@ -220,7 +221,7 @@ func TotalTimes(options *FindTrackedTimesOptions) (map[*user_model.User]int64, e
 			}
 			return nil, err
 		}
-		totalTimes[user] = total
+		totalTimes[user] = util.SecToTime(total)
 	}
 	return totalTimes, nil
 }
@@ -250,12 +251,10 @@ func DeleteIssueUserTimes(issue *Issue, user *user_model.User) error {
 		return err
 	}
 	if _, err := CreateComment(ctx, &CreateCommentOptions{
-		Issue: issue,
-		Repo:  issue.Repo,
-		Doer:  user,
-		// Content before v1.21 did store the formated string instead of seconds,
-		// so use "|" as delimeter to mark the new format
-		Content: fmt.Sprintf("|%d", removedTime),
+		Issue:   issue,
+		Repo:    issue.Repo,
+		Doer:    user,
+		Content: "- " + util.SecToTime(removedTime),
 		Type:    CommentTypeDeleteTimeManual,
 	}); err != nil {
 		return err
@@ -272,7 +271,7 @@ func DeleteTime(t *TrackedTime) error {
 	}
 	defer committer.Close()
 
-	if err := t.LoadAttributes(ctx); err != nil {
+	if err := t.loadAttributes(ctx); err != nil {
 		return err
 	}
 
@@ -281,12 +280,10 @@ func DeleteTime(t *TrackedTime) error {
 	}
 
 	if _, err := CreateComment(ctx, &CreateCommentOptions{
-		Issue: t.Issue,
-		Repo:  t.Issue.Repo,
-		Doer:  t.User,
-		// Content before v1.21 did store the formated string instead of seconds,
-		// so use "|" as delimeter to mark the new format
-		Content: fmt.Sprintf("|%d", t.Time),
+		Issue:   t.Issue,
+		Repo:    t.Issue.Repo,
+		Doer:    t.User,
+		Content: "- " + util.SecToTime(t.Time),
 		Type:    CommentTypeDeleteTimeManual,
 	}); err != nil {
 		return err
@@ -298,7 +295,7 @@ func DeleteTime(t *TrackedTime) error {
 func deleteTimes(ctx context.Context, opts FindTrackedTimesOptions) (removedTime int64, err error) {
 	removedTime, err = GetTrackedSeconds(ctx, opts)
 	if err != nil || removedTime == 0 {
-		return removedTime, err
+		return
 	}
 
 	_, err = opts.toSession(db.GetEngine(ctx)).Table("tracked_time").Cols("deleted").Update(&TrackedTime{Deleted: true})

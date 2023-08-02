@@ -20,7 +20,7 @@ import (
 func Routes() *web.Route {
 	base := web.NewRoute()
 	base.Use(common.ProtocolMiddlewares()...)
-	base.Methods("GET, HEAD", "/assets/*", public.FileHandlerFunc())
+	base.RouteMethods("/assets/*", "GET, HEAD", public.AssetsHandlerFunc("/assets/"))
 
 	r := web.NewRoute()
 	r.Use(common.Sessioner(), Contexter())

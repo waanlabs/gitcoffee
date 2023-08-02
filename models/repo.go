@@ -147,7 +147,7 @@ func DeleteRepository(doer *user_model.User, uid, repoID int64) error {
 		&repo_model.Collaboration{RepoID: repoID},
 		&issues_model.Comment{RefRepoID: repoID},
 		&git_model.CommitStatus{RepoID: repoID},
-		&git_model.Branch{RepoID: repoID},
+		&git_model.DeletedBranch{RepoID: repoID},
 		&git_model.LFSLock{RepoID: repoID},
 		&repo_model.LanguageStat{RepoID: repoID},
 		&issues_model.Milestone{RepoID: repoID},
@@ -628,14 +628,14 @@ func DoctorUserStarNum() (err error) {
 	for start := 0; ; start += batchSize {
 		users := make([]user_model.User, 0, batchSize)
 		if err = db.GetEngine(db.DefaultContext).Limit(batchSize, start).Where("type = ?", 0).Cols("id").Find(&users); err != nil {
-			return err
+			return
 		}
 		if len(users) == 0 {
 			break
 		}
 
 		if err = updateUserStarNumbers(users); err != nil {
-			return err
+			return
 		}
 	}
 

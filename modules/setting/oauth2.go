@@ -120,8 +120,6 @@ func loadOAuth2From(rootCfg ConfigProvider) {
 		return
 	}
 
-	OAuth2.JWTSecretBase64 = loadSecret(rootCfg.Section("oauth2"), "JWT_SECRET_URI", "JWT_SECRET")
-
 	if !filepath.IsAbs(OAuth2.JWTSigningPrivateKeyFile) {
 		OAuth2.JWTSigningPrivateKeyFile = filepath.Join(AppDataPath, OAuth2.JWTSigningPrivateKeyFile)
 	}

@@ -71,7 +71,7 @@ func runMigrateTask(t *admin_model.Task) (err error) {
 	}()
 
 	if err = t.LoadRepo(); err != nil {
-		return err
+		return
 	}
 
 	// if repository is ready, then just finish the task
@@ -80,16 +80,16 @@ func runMigrateTask(t *admin_model.Task) (err error) {
 	}
 
 	if err = t.LoadDoer(); err != nil {
-		return err
+		return
 	}
 	if err = t.LoadOwner(); err != nil {
-		return err
+		return
 	}
 
 	var opts *migration.MigrateOptions
 	opts, err = t.MigrateConfig()
 	if err != nil {
-		return err
+		return
 	}
 
 	opts.MigrateToRepoID = t.RepoID
@@ -101,7 +101,7 @@ func runMigrateTask(t *admin_model.Task) (err error) {
 	t.StartTime = timeutil.TimeStampNow()
 	t.Status = structs.TaskStatusRunning
 	if err = t.UpdateCols("start_time", "status"); err != nil {
-		return err
+		return
 	}
 
 	// check whether the task should be canceled, this goroutine is also managed by process manager
@@ -133,11 +133,12 @@ func runMigrateTask(t *admin_model.Task) (err error) {
 
 	if err == nil {
 		log.Trace("Repository migrated [%d]: %s/%s", t.Repo.ID, t.Owner.Name, t.Repo.Name)
-		return nil
+		return
 	}
 
 	if repo_model.IsErrRepoAlreadyExist(err) {
-		return errors.New("the repository name is already used")
+		err = errors.New("the repository name is already used")
+		return
 	}
 
 	// remoteAddr may contain credentials, so we sanitize it

@@ -34,12 +34,12 @@ func IssuePinOrUnpin(ctx *context.Context) {
 		return
 	}
 
-	ctx.JSONRedirect(issue.Link())
+	ctx.Redirect(issue.Link())
 }
 
 // IssueUnpin unpins a Issue
 func IssueUnpin(ctx *context.Context) {
-	issue, err := issues_model.GetIssueByIndex(ctx, ctx.Repo.Repository.ID, ctx.ParamsInt64(":index"))
+	issue, err := issues_model.GetIssueByIndex(ctx.Repo.Repository.ID, ctx.ParamsInt64(":index"))
 	if err != nil {
 		ctx.Status(http.StatusInternalServerError)
 		log.Error(err.Error())

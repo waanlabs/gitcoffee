@@ -22,7 +22,6 @@ import (
 	"code.gitea.io/gitea/modules/setting"
 	"code.gitea.io/gitea/modules/util"
 	"code.gitea.io/gitea/modules/web"
-	packages_helper "code.gitea.io/gitea/routers/api/packages/helper"
 	shared_user "code.gitea.io/gitea/routers/web/shared/user"
 	"code.gitea.io/gitea/services/forms"
 	packages_service "code.gitea.io/gitea/services/packages"
@@ -37,7 +36,6 @@ const (
 
 // ListPackages displays a list of all packages of the context user
 func ListPackages(ctx *context.Context) {
-	shared_user.PrepareContextForProfileBigAvatar(ctx)
 	page := ctx.FormInt("page")
 	if page <= 1 {
 		page = 1
@@ -260,7 +258,6 @@ func ViewPackageVersion(ctx *context.Context) {
 
 // ListPackageVersions lists all versions of a package
 func ListPackageVersions(ctx *context.Context) {
-	shared_user.PrepareContextForProfileBigAvatar(ctx)
 	p, err := packages_model.GetPackageByName(ctx, ctx.Package.Owner.ID, packages_model.Type(ctx.Params("type")), ctx.Params("name"))
 	if err != nil {
 		if err == packages_model.ErrPackageNotExist {
@@ -446,11 +443,18 @@ func DownloadPackageFile(ctx *context.Context) {
 		return
 	}
 
-	s, u, _, err := packages_service.GetPackageFileStream(ctx, pf)
+	s, _, err := packages_service.GetPackageFileStream(
+		ctx,
+		pf,
+	)
 	if err != nil {
 		ctx.ServerError("GetPackageFileStream", err)
 		return
 	}
+	defer s.Close()
 
-	packages_helper.ServePackageFile(ctx, s, u, pf)
+	ctx.ServeContent(s, &context.ServeHeaderOptions{
+		Filename:     pf.Name,
+		LastModified: pf.CreatedUnix.AsLocalTime(),
+	})
 }

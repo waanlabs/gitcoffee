@@ -6,7 +6,6 @@ package doctor
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 
 	"code.gitea.io/gitea/models/db"
@@ -41,12 +40,12 @@ func parseBool16961(bs []byte) (bool, error) {
 func fixUnitConfig16961(bs []byte, cfg *repo_model.UnitConfig) (fixed bool, err error) {
 	err = json.UnmarshalHandleDoubleEncode(bs, &cfg)
 	if err == nil {
-		return false, nil
+		return
 	}
 
 	// Handle #16961
 	if string(bs) != "&{}" && len(bs) != 0 {
-		return false, err
+		return
 	}
 
 	return true, nil
@@ -55,14 +54,14 @@ func fixUnitConfig16961(bs []byte, cfg *repo_model.UnitConfig) (fixed bool, err 
 func fixExternalWikiConfig16961(bs []byte, cfg *repo_model.ExternalWikiConfig) (fixed bool, err error) {
 	err = json.UnmarshalHandleDoubleEncode(bs, &cfg)
 	if err == nil {
-		return false, nil
+		return
 	}
 
 	if len(bs) < 3 {
-		return false, err
+		return
 	}
 	if bs[0] != '&' || bs[1] != '{' || bs[len(bs)-1] != '}' {
-		return false, err
+		return
 	}
 	cfg.ExternalWikiURL = string(bs[2 : len(bs)-1])
 	return true, nil
@@ -71,20 +70,20 @@ func fixExternalWikiConfig16961(bs []byte, cfg *repo_model.ExternalWikiConfig) (
 func fixExternalTrackerConfig16961(bs []byte, cfg *repo_model.ExternalTrackerConfig) (fixed bool, err error) {
 	err = json.UnmarshalHandleDoubleEncode(bs, &cfg)
 	if err == nil {
-		return false, nil
+		return
 	}
 	// Handle #16961
 	if len(bs) < 3 {
-		return false, err
+		return
 	}
 
 	if bs[0] != '&' || bs[1] != '{' || bs[len(bs)-1] != '}' {
-		return false, err
+		return
 	}
 
 	parts := bytes.Split(bs[2:len(bs)-1], []byte{' '})
 	if len(parts) != 3 {
-		return false, err
+		return
 	}
 
 	cfg.ExternalTrackerURL = string(bytes.Join(parts[:len(parts)-2], []byte{' '}))
@@ -96,16 +95,16 @@ func fixExternalTrackerConfig16961(bs []byte, cfg *repo_model.ExternalTrackerCon
 func fixPullRequestsConfig16961(bs []byte, cfg *repo_model.PullRequestsConfig) (fixed bool, err error) {
 	err = json.UnmarshalHandleDoubleEncode(bs, &cfg)
 	if err == nil {
-		return false, nil
+		return
 	}
 
 	// Handle #16961
 	if len(bs) < 3 {
-		return false, err
+		return
 	}
 
 	if bs[0] != '&' || bs[1] != '{' || bs[len(bs)-1] != '}' {
-		return false, err
+		return
 	}
 
 	// PullRequestsConfig was the following in 1.14
@@ -124,37 +123,37 @@ func fixPullRequestsConfig16961(bs []byte, cfg *repo_model.PullRequestsConfig) (
 	// DefaultMergeStyle             MergeStyle
 	parts := bytes.Split(bs[2:len(bs)-1], []byte{' '})
 	if len(parts) < 7 {
-		return false, err
+		return
 	}
 
 	var parseErr error
 	cfg.IgnoreWhitespaceConflicts, parseErr = parseBool16961(parts[0])
 	if parseErr != nil {
-		return false, errors.Join(err, parseErr)
+		return
 	}
 	cfg.AllowMerge, parseErr = parseBool16961(parts[1])
 	if parseErr != nil {
-		return false, errors.Join(err, parseErr)
+		return
 	}
 	cfg.AllowRebase, parseErr = parseBool16961(parts[2])
 	if parseErr != nil {
-		return false, errors.Join(err, parseErr)
+		return
 	}
 	cfg.AllowRebaseMerge, parseErr = parseBool16961(parts[3])
 	if parseErr != nil {
-		return false, errors.Join(err, parseErr)
+		return
 	}
 	cfg.AllowSquash, parseErr = parseBool16961(parts[4])
 	if parseErr != nil {
-		return false, errors.Join(err, parseErr)
+		return
 	}
 	cfg.AllowManualMerge, parseErr = parseBool16961(parts[5])
 	if parseErr != nil {
-		return false, errors.Join(err, parseErr)
+		return
 	}
 	cfg.AutodetectManualMerge, parseErr = parseBool16961(parts[6])
 	if parseErr != nil {
-		return false, errors.Join(err, parseErr)
+		return
 	}
 
 	// 1.14 unit
@@ -163,12 +162,12 @@ func fixPullRequestsConfig16961(bs []byte, cfg *repo_model.PullRequestsConfig) (
 	}
 
 	if len(parts) < 9 {
-		return false, err
+		return
 	}
 
 	cfg.DefaultDeleteBranchAfterMerge, parseErr = parseBool16961(parts[7])
 	if parseErr != nil {
-		return false, errors.Join(err, parseErr)
+		return
 	}
 
 	cfg.DefaultMergeStyle = repo_model.MergeStyle(string(bytes.Join(parts[8:], []byte{' '})))
@@ -178,34 +177,34 @@ func fixPullRequestsConfig16961(bs []byte, cfg *repo_model.PullRequestsConfig) (
 func fixIssuesConfig16961(bs []byte, cfg *repo_model.IssuesConfig) (fixed bool, err error) {
 	err = json.UnmarshalHandleDoubleEncode(bs, &cfg)
 	if err == nil {
-		return false, nil
+		return
 	}
 
 	// Handle #16961
 	if len(bs) < 3 {
-		return false, err
+		return
 	}
 
 	if bs[0] != '&' || bs[1] != '{' || bs[len(bs)-1] != '}' {
-		return false, err
+		return
 	}
 
 	parts := bytes.Split(bs[2:len(bs)-1], []byte{' '})
 	if len(parts) != 3 {
-		return false, err
+		return
 	}
 	var parseErr error
 	cfg.EnableTimetracker, parseErr = parseBool16961(parts[0])
 	if parseErr != nil {
-		return false, errors.Join(err, parseErr)
+		return
 	}
 	cfg.AllowOnlyContributorsToTrackTime, parseErr = parseBool16961(parts[1])
 	if parseErr != nil {
-		return false, errors.Join(err, parseErr)
+		return
 	}
 	cfg.EnableDependencies, parseErr = parseBool16961(parts[2])
 	if parseErr != nil {
-		return false, errors.Join(err, parseErr)
+		return
 	}
 	return true, nil
 }

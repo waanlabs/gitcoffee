@@ -125,7 +125,7 @@ func TestEmptyRepoAddFileByAPI(t *testing.T) {
 			NewBranchName: "new_branch",
 			Message:       "init",
 		},
-		ContentBase64: base64.StdEncoding.EncodeToString([]byte("newly-added-api-file")),
+		Content: base64.StdEncoding.EncodeToString([]byte("newly-added-api-file")),
 	})
 
 	resp := MakeRequest(t, req, http.StatusCreated)

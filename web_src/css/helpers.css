@@ -36,6 +36,7 @@ Gitea's private styles use `g-` prefix.
   text-overflow: ellipsis !important;
 }
 
+
 .g-table-auto-ellipsis td.auto-ellipsis {
   position: relative;
 }
@@ -52,7 +53,6 @@ Gitea's private styles use `g-` prefix.
   text-overflow: ellipsis;
 }
 
-.gt-max-width-12rem { max-width: 12rem !important; }
 .gt-max-width-24rem { max-width: 24rem !important; }
 
 /* below class names match Tailwind CSS */
@@ -72,8 +72,6 @@ Gitea's private styles use `g-` prefix.
 .gt-self-start { align-self: flex-start !important; }
 .gt-self-end { align-self: flex-end !important; }
 .gt-no-underline { text-decoration-line: none !important; }
-.gt-w-auto { width: auto !important; }
-.gt-normal-case { text-transform: none !important; }
 
 .gt-overflow-x-auto { overflow-x: auto !important; }
 .gt-overflow-x-scroll { overflow-x: scroll !important; }

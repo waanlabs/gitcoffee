@@ -210,7 +210,7 @@ func InitiateUploadBlob(ctx *context.Context) {
 			}
 
 			if accessible {
-				if err := mountBlob(ctx, &packages_service.PackageInfo{Owner: ctx.Package.Owner, Name: image}, blob.Blob); err != nil {
+				if err := mountBlob(&packages_service.PackageInfo{Owner: ctx.Package.Owner, Name: image}, blob.Blob); err != nil {
 					apiError(ctx, http.StatusInternalServerError, err)
 					return
 				}
@@ -239,7 +239,7 @@ func InitiateUploadBlob(ctx *context.Context) {
 			return
 		}
 
-		if _, err := saveAsPackageBlob(ctx,
+		if _, err := saveAsPackageBlob(
 			buf,
 			&packages_service.PackageCreationInfo{
 				PackageInfo: packages_service.PackageInfo{
@@ -384,7 +384,7 @@ func EndUploadBlob(ctx *context.Context) {
 		return
 	}
 
-	if _, err := saveAsPackageBlob(ctx,
+	if _, err := saveAsPackageBlob(
 		uploader,
 		&packages_service.PackageCreationInfo{
 			PackageInfo: packages_service.PackageInfo{
@@ -490,7 +490,22 @@ func GetBlob(ctx *context.Context) {
 		return
 	}
 
-	serveBlob(ctx, blob)
+	s, _, err := packages_service.GetPackageFileStream(ctx, blob.File)
+	if err != nil {
+		apiError(ctx, http.StatusInternalServerError, err)
+		return
+	}
+	defer s.Close()
+
+	setResponseHeaders(ctx.Resp, &containerHeaders{
+		ContentDigest: blob.Properties.GetByName(container_module.PropertyDigest),
+		ContentType:   blob.Properties.GetByName(container_module.PropertyMediaType),
+		ContentLength: blob.Blob.Size,
+		Status:        http.StatusOK,
+	})
+	if _, err := io.Copy(ctx.Resp, s); err != nil {
+		log.Error("Error whilst copying content to response: %v", err)
+	}
 }
 
 // https://github.com/opencontainers/distribution-spec/blob/main/spec.md#deleting-blobs
@@ -502,7 +517,7 @@ func DeleteBlob(ctx *context.Context) {
 		return
 	}
 
-	if err := deleteBlob(ctx, ctx.Package.Owner.ID, ctx.Params("image"), d); err != nil {
+	if err := deleteBlob(ctx.Package.Owner.ID, ctx.Params("image"), d); err != nil {
 		apiError(ctx, http.StatusInternalServerError, err)
 		return
 	}
@@ -543,7 +558,7 @@ func UploadManifest(ctx *context.Context) {
 		return
 	}
 
-	digest, err := processManifest(ctx, mci, buf)
+	digest, err := processManifest(mci, buf)
 	if err != nil {
 		var namedError *namedError
 		if errors.As(err, &namedError) {
@@ -629,7 +644,22 @@ func GetManifest(ctx *context.Context) {
 		return
 	}
 
-	serveBlob(ctx, manifest)
+	s, _, err := packages_service.GetPackageFileStream(ctx, manifest.File)
+	if err != nil {
+		apiError(ctx, http.StatusInternalServerError, err)
+		return
+	}
+	defer s.Close()
+
+	setResponseHeaders(ctx.Resp, &containerHeaders{
+		ContentDigest: manifest.Properties.GetByName(container_module.PropertyDigest),
+		ContentType:   manifest.Properties.GetByName(container_module.PropertyMediaType),
+		ContentLength: manifest.Blob.Size,
+		Status:        http.StatusOK,
+	})
+	if _, err := io.Copy(ctx.Resp, s); err != nil {
+		log.Error("Error whilst copying content to response: %v", err)
+	}
 }
 
 // https://github.com/opencontainers/distribution-spec/blob/main/spec.md#deleting-tags
@@ -662,36 +692,6 @@ func DeleteManifest(ctx *context.Context) {
 	setResponseHeaders(ctx.Resp, &containerHeaders{
 		Status: http.StatusAccepted,
 	})
-}
-
-func serveBlob(ctx *context.Context, pfd *packages_model.PackageFileDescriptor) {
-	s, u, _, err := packages_service.GetPackageBlobStream(ctx, pfd.File, pfd.Blob)
-	if err != nil {
-		apiError(ctx, http.StatusInternalServerError, err)
-		return
-	}
-
-	headers := &containerHeaders{
-		ContentDigest: pfd.Properties.GetByName(container_module.PropertyDigest),
-		ContentType:   pfd.Properties.GetByName(container_module.PropertyMediaType),
-		ContentLength: pfd.Blob.Size,
-		Status:        http.StatusOK,
-	}
-
-	if u != nil {
-		headers.Status = http.StatusTemporaryRedirect
-		headers.Location = u.String()
-
-		setResponseHeaders(ctx.Resp, headers)
-		return
-	}
-
-	defer s.Close()
-
-	setResponseHeaders(ctx.Resp, headers)
-	if _, err := io.Copy(ctx.Resp, s); err != nil {
-		log.Error("Error whilst copying content to response: %v", err)
-	}
 }
 
 // https://github.com/opencontainers/distribution-spec/blob/main/spec.md#content-discovery

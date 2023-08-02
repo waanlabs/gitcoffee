@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"code.gitea.io/gitea/models/db"
-	git_model "code.gitea.io/gitea/models/git"
 	repo_model "code.gitea.io/gitea/models/repo"
 	user_model "code.gitea.io/gitea/models/user"
 	"code.gitea.io/gitea/modules/container"
@@ -147,15 +146,7 @@ func adoptRepository(ctx context.Context, repoPath string, u *user_model.User, r
 			}
 		}
 	}
-
-	branches, _ := git_model.FindBranchNames(ctx, git_model.FindBranchOptions{
-		RepoID: repo.ID,
-		ListOptions: db.ListOptions{
-			ListAll: true,
-		},
-		IsDeletedBranch: util.OptionalBoolFalse,
-	})
-
+	branches, _, _ := gitRepo.GetBranchNames(0, 0)
 	found := false
 	hasDefault := false
 	hasMaster := false

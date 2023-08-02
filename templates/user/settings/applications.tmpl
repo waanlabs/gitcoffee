@@ -4,20 +4,21 @@
 			{{.locale.Tr "settings.manage_access_token"}}
 		</h4>
 		<div class="ui attached segment">
-			<div class="flex-list">
-				<div class="flex-item">
+			<div class="ui key list">
+				<div class="item">
 					{{.locale.Tr "settings.tokens_desc"}}
 				</div>
 				{{range .Tokens}}
-					<div class="flex-item">
-						<div class="flex-item-leading">
-							<span class="text {{if .HasRecentActivity}}green{{end}}" {{if .HasRecentActivity}}data-tooltip-content="{{$.locale.Tr "settings.token_state_desc"}}"{{end}}>
-								{{svg "fontawesome-send" 32}}
-							</span>
+					<div class="item">
+						<div class="right floated content">
+								<button class="ui red tiny button delete-button" data-modal-id="delete-token" data-url="{{$.Link}}/delete" data-id="{{.ID}}">
+									{{svg "octicon-trash" 16 "gt-mr-2"}}
+									{{$.locale.Tr "settings.delete_token"}}
+								</button>
 						</div>
-						<div class="flex-item-main">
-							<details>
-								<summary><span class="flex-item-title">{{.Name}}</span></summary>
+						<i class="text {{if .HasRecentActivity}}green{{end}}" {{if .HasRecentActivity}}data-tooltip-content="{{$.locale.Tr "settings.token_state_desc"}}"{{end}}>{{svg "fontawesome-send" 36}}</i>
+						<div class="content">
+							<details><summary><strong>{{.Name}}</strong></summary>
 								<p class="gt-my-2">
 									{{$.locale.Tr "settings.repo_and_org_access"}}:
 									{{if .DisplayPublicOnly}}
@@ -35,15 +36,9 @@
 								{{end}}
 								</ul>
 							</details>
-							<div class="flex-item-body">
-								<i>{{$.locale.Tr "settings.added_on" (DateTime "short" .CreatedUnix) | Safe}} — {{svg "octicon-info"}} {{if .HasUsed}}{{$.locale.Tr "settings.last_used"}} <span {{if .HasRecentActivity}}class="text green"{{end}}>{{DateTime "short" .UpdatedUnix}}</span>{{else}}{{$.locale.Tr "settings.no_activity"}}{{end}}</i>
+							<div class="activity meta">
+								<i>{{$.locale.Tr "settings.added_on" (DateTime "short" .CreatedUnix) | Safe}} — {{svg "octicon-info"}} {{if .HasUsed}}{{$.locale.Tr "settings.last_used"}} <span {{if .HasRecentActivity}}class="green"{{end}}>{{DateTime "short" .UpdatedUnix}}</span>{{else}}{{$.locale.Tr "settings.no_activity"}}{{end}}</i>
 							</div>
-						</div>
-						<div class="flex-item-trailing">
-								<button class="ui red tiny button delete-button" data-modal-id="delete-token" data-url="{{$.Link}}/delete" data-id="{{.ID}}">
-									{{svg "octicon-trash" 16 "gt-mr-2"}}
-									{{$.locale.Tr "settings.delete_token"}}
-								</button>
 						</div>
 					</div>
 				{{end}}

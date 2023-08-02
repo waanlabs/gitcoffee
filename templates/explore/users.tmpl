@@ -4,35 +4,26 @@
 	<div class="ui container">
 		{{template "explore/search" .}}
 
-		<div class="flex-list">
+		<div class="ui user list">
 			{{range .Users}}
-				<div class="flex-item flex-item-center">
-					<div class="flex-item-leading">
-						{{avatar $.Context . 48}}
-					</div>
-					<div class="flex-item-main">
-						<div class="flex-item-title">
-							{{template "shared/user/name" .}}
-							{{if .Visibility.IsPrivate}}
-								<span class="ui basic tiny label">{{$.locale.Tr "repo.desc.private"}}</span>
-							{{end}}
-						</div>
-						<div class="flex-item-body">
+				<div class="item">
+					{{avatar $.Context .}}
+					<div class="content">
+						<span class="header"><a href="{{.HomeLink}}">{{.Name}}</a> {{.FullName}}</span>
+						<div class="description">
 							{{if .Location}}
-								<span class="flex-text-inline">{{svg "octicon-location"}}{{.Location}}</span>
+								{{svg "octicon-location"}} {{.Location}}
 							{{end}}
 							{{if and $.ShowUserEmail .Email $.IsSigned (not .KeepEmailPrivate)}}
-								<span class="flex-text-inline">
-									{{svg "octicon-mail"}}
-									<a href="mailto:{{.Email}}" rel="nofollow">{{.Email}}</a>
-								</span>
+								{{svg "octicon-mail"}}
+								<a href="mailto:{{.Email}}" rel="nofollow">{{.Email}}</a>
 							{{end}}
-							<span class="flex-text-inline">{{svg "octicon-calendar"}}{{$.locale.Tr "user.joined_on" (DateTime "short" .CreatedUnix) | Safe}}</span>
+							{{svg "octicon-clock"}} {{$.locale.Tr "user.joined_on" (DateTime "short" .CreatedUnix) | Safe}}
 						</div>
 					</div>
 				</div>
 			{{else}}
-				<div class="flex-item">{{$.locale.Tr "explore.user_no_results"}}</div>
+				<div>{{$.locale.Tr "explore.user_no_results"}}</div>
 			{{end}}
 		</div>
 

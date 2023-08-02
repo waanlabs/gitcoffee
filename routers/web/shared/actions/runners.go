@@ -5,6 +5,8 @@ package actions
 
 import (
 	"errors"
+	"net/http"
+	"strings"
 
 	actions_model "code.gitea.io/gitea/models/actions"
 	"code.gitea.io/gitea/models/db"
@@ -124,8 +126,9 @@ func RunnerDetailsEditPost(ctx *context.Context, runnerID, ownerID, repoID int64
 
 	form := web.GetForm(ctx).(*forms.EditRunnerForm)
 	runner.Description = form.Description
+	runner.CustomLabels = splitLabels(form.CustomLabels)
 
-	err = actions_model.UpdateRunner(ctx, runner, "description")
+	err = actions_model.UpdateRunner(ctx, runner, "description", "custom_labels")
 	if err != nil {
 		log.Warn("RunnerDetailsEditPost.UpdateRunner failed: %v, url: %s", err, ctx.Req.URL)
 		ctx.Flash.Warning(ctx.Tr("actions.runners.update_runner_failed"))
@@ -159,7 +162,9 @@ func RunnerDeletePost(ctx *context.Context, runnerID int64,
 		log.Warn("DeleteRunnerPost.UpdateRunner failed: %v, url: %s", err, ctx.Req.URL)
 		ctx.Flash.Warning(ctx.Tr("actions.runners.delete_runner_failed"))
 
-		ctx.JSONRedirect(failedRedirectTo)
+		ctx.JSON(http.StatusOK, map[string]any{
+			"redirect": failedRedirectTo,
+		})
 		return
 	}
 
@@ -167,5 +172,15 @@ func RunnerDeletePost(ctx *context.Context, runnerID int64,
 
 	ctx.Flash.Success(ctx.Tr("actions.runners.delete_runner_success"))
 
-	ctx.JSONRedirect(successRedirectTo)
+	ctx.JSON(http.StatusOK, map[string]any{
+		"redirect": successRedirectTo,
+	})
+}
+
+func splitLabels(s string) []string {
+	labels := strings.Split(s, ",")
+	for i, v := range labels {
+		labels[i] = strings.TrimSpace(v)
+	}
+	return labels
 }

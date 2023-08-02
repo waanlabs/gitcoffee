@@ -4,6 +4,7 @@
 package actions
 
 import (
+	"context"
 	"net/http"
 
 	"code.gitea.io/gitea/modules/web"
@@ -11,7 +12,7 @@ import (
 	"code.gitea.io/gitea/routers/api/actions/runner"
 )
 
-func Routes(prefix string) *web.Route {
+func Routes(_ context.Context, prefix string) *web.Route {
 	m := web.NewRoute()
 
 	path, handler := ping.NewPingServiceHandler()

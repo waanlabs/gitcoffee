@@ -20,7 +20,7 @@ import (
 
 // GarbageCollectLFSMetaObjectsOptions provides options for GarbageCollectLFSMetaObjects function
 type GarbageCollectLFSMetaObjectsOptions struct {
-	LogDetail                func(format string, v ...any)
+	Logger                   log.Logger
 	AutoFix                  bool
 	OlderThan                time.Time
 	UpdatedLessRecentlyThan  time.Time
@@ -33,12 +33,10 @@ func GarbageCollectLFSMetaObjects(ctx context.Context, opts GarbageCollectLFSMet
 	log.Trace("Doing: GarbageCollectLFSMetaObjects")
 	defer log.Trace("Finished: GarbageCollectLFSMetaObjects")
 
-	if opts.LogDetail == nil {
-		opts.LogDetail = log.Debug
-	}
-
 	if !setting.LFS.StartServer {
-		opts.LogDetail("LFS support is disabled")
+		if opts.Logger != nil {
+			opts.Logger.Info("LFS support is disabled")
+		}
 		return nil
 	}
 
@@ -57,17 +55,21 @@ func GarbageCollectLFSMetaObjects(ctx context.Context, opts GarbageCollectLFSMet
 
 // GarbageCollectLFSMetaObjectsForRepo garbage collects LFS objects for a specific repository
 func GarbageCollectLFSMetaObjectsForRepo(ctx context.Context, repo *repo_model.Repository, opts GarbageCollectLFSMetaObjectsOptions) error {
-	opts.LogDetail("Checking %-v", repo)
+	if opts.Logger != nil {
+		opts.Logger.Info("Checking %-v", repo)
+	}
 	total, orphaned, collected, deleted := int64(0), 0, 0, 0
-	defer func() {
-		if orphaned == 0 {
-			opts.LogDetail("Found %d total LFSMetaObjects in %-v", total, repo)
-		} else if !opts.AutoFix {
-			opts.LogDetail("Found %d/%d orphaned LFSMetaObjects in %-v", orphaned, total, repo)
-		} else {
-			opts.LogDetail("Collected %d/%d orphaned/%d total LFSMetaObjects in %-v. %d removed from storage.", collected, orphaned, total, repo, deleted)
-		}
-	}()
+	if opts.Logger != nil {
+		defer func() {
+			if orphaned == 0 {
+				opts.Logger.Info("Found %d total LFSMetaObjects in %-v", total, repo)
+			} else if !opts.AutoFix {
+				opts.Logger.Info("Found %d/%d orphaned LFSMetaObjects in %-v", orphaned, total, repo)
+			} else {
+				opts.Logger.Info("Collected %d/%d orphaned/%d total LFSMetaObjects in %-v. %d removed from storage.", collected, orphaned, total, repo, deleted)
+			}
+		}()
+	}
 
 	gitRepo, err := git.OpenRepository(ctx, repo.RepoPath())
 	if err != nil {
@@ -128,7 +130,9 @@ func GarbageCollectLFSMetaObjectsForRepo(ctx context.Context, repo *repo_model.R
 	})
 
 	if err == errStop {
-		opts.LogDetail("Processing stopped at %d total LFSMetaObjects in %-v", total, repo)
+		if opts.Logger != nil {
+			opts.Logger.Info("Processing stopped at %d total LFSMetaObjects in %-v", total, repo)
+		}
 		return nil
 	} else if err != nil {
 		return err

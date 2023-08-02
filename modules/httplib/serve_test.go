@@ -11,6 +11,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -77,7 +78,7 @@ func TestServeContentByReadSeeker(t *testing.T) {
 		defer seekReader.Close()
 
 		w := httptest.NewRecorder()
-		ServeContentByReadSeeker(r, w, "test", nil, seekReader)
+		ServeContentByReadSeeker(r, w, "test", time.Time{}, seekReader)
 		assert.Equal(t, expectedStatusCode, w.Code)
 		if expectedStatusCode == http.StatusPartialContent || expectedStatusCode == http.StatusOK {
 			assert.Equal(t, fmt.Sprint(len(expectedContent)), w.Header().Get("Content-Length"))

@@ -238,8 +238,6 @@ type GenerateRepoOption struct {
 	Avatar bool `json:"avatar"`
 	// include labels in template repo
 	Labels bool `json:"labels"`
-	// include protected branches in template repo
-	ProtectedBranch bool `json:"protected_branch"`
 }
 
 // CreateBranchRepoOption options when creating a branch in a repository
@@ -381,10 +379,4 @@ type RepoTransfer struct {
 type NewIssuePinsAllowed struct {
 	Issues       bool `json:"issues"`
 	PullRequests bool `json:"pull_requests"`
-}
-
-// UpdateRepoAvatarUserOption options when updating the repo avatar
-type UpdateRepoAvatarOption struct {
-	// image must be base64 encoded
-	Image string `json:"image" binding:"Required"`
 }

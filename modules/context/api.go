@@ -20,8 +20,6 @@ import (
 	"code.gitea.io/gitea/modules/httpcache"
 	"code.gitea.io/gitea/modules/log"
 	"code.gitea.io/gitea/modules/setting"
-	"code.gitea.io/gitea/modules/web"
-	web_types "code.gitea.io/gitea/modules/web/types"
 
 	"gitea.com/go-chi/cache"
 )
@@ -41,12 +39,6 @@ type APIContext struct {
 	Repo    *Repository
 	Org     *APIOrganization
 	Package *Package
-}
-
-func init() {
-	web.RegisterResponseStatusProvider[*APIContext](func(req *http.Request) web_types.ResponseStatusProvider {
-		return req.Context().Value(apiContextKey).(*APIContext)
-	})
 }
 
 // Currently, we have the following common fields in error response:
@@ -294,7 +286,7 @@ func ReferencesGitRepo(allowEmpty ...bool) func(ctx *APIContext) (cancel context
 	return func(ctx *APIContext) (cancel context.CancelFunc) {
 		// Empty repository does not have reference information.
 		if ctx.Repo.Repository.IsEmpty && !(len(allowEmpty) != 0 && allowEmpty[0]) {
-			return nil
+			return
 		}
 
 		// For API calls.
@@ -303,7 +295,7 @@ func ReferencesGitRepo(allowEmpty ...bool) func(ctx *APIContext) (cancel context
 			gitRepo, err := git.OpenRepository(ctx, repoPath)
 			if err != nil {
 				ctx.Error(http.StatusInternalServerError, "RepoRef Invalid repo "+repoPath, err)
-				return cancel
+				return
 			}
 			ctx.Repo.GitRepo = gitRepo
 			// We opened it, we should close it

@@ -49,8 +49,8 @@
             {{ locale.artifactsTitle }}
           </div>
           <ul class="job-artifacts-list">
-            <li class="job-artifacts-item" v-for="artifact in artifacts" :key="artifact.name">
-              <a class="job-artifacts-link" target="_blank" :href="run.link+'/artifacts/'+artifact.name">
+            <li class="job-artifacts-item" v-for="artifact in artifacts" :key="artifact.id">
+              <a class="job-artifacts-link" target="_blank" :href="run.link+'/artifacts/'+artifact.id">
                 <SvgIcon name="octicon-file" class="ui text black job-artifacts-icon"/>{{ artifact.name }}
               </a>
             </li>
@@ -74,10 +74,6 @@
                 <SvgIcon name="octicon-gear" :size="18"/>
               </button>
               <div class="menu transition action-job-menu" :class="{visible: menuVisible}" v-if="menuVisible" v-cloak>
-                <a :class="['item', currentJob.steps.length === 0 ? 'disabled' : '']" :href="run.link+'/jobs/'+jobIndex+'/logs'" target="_blank">
-                  <i class="icon"><SvgIcon name="octicon-download"/></i>
-                  {{ locale.downloadLogs }}
-                </a>
                 <a class="item" @click="toggleTimeDisplay('seconds')">
                   <i class="icon"><SvgIcon v-show="timeVisible['log-time-seconds']" name="octicon-check"/></i>
                   {{ locale.showLogSeconds }}
@@ -123,11 +119,13 @@
 import {SvgIcon} from '../svg.js';
 import ActionRunStatus from './ActionRunStatus.vue';
 import {createApp} from 'vue';
+import AnsiToHTML from 'ansi-to-html';
 import {toggleElem} from '../utils/dom.js';
 import {getCurrentLocale} from '../utils.js';
-import {renderAnsi} from '../render/ansi.js';
 
 const {csrfToken} = window.config;
+
+const ansiLogRender = new AnsiToHTML({escapeXML: true});
 
 const sfc = {
   name: 'RepoActionView',
@@ -204,19 +202,15 @@ const sfc = {
     };
   },
 
-  async mounted() {
+  mounted() {
     // load job data and then auto-reload periodically
-    // need to await first loadJob so this.currentJobStepsStates is initialized and can be used in hashChangeListener
-    await this.loadJob();
+    this.loadJob();
     this.intervalID = setInterval(this.loadJob, 1000);
     document.body.addEventListener('click', this.closeDropdown);
-    this.hashChangeListener();
-    window.addEventListener('hashchange', this.hashChangeListener);
   },
 
   beforeUnmount() {
     document.body.removeEventListener('click', this.closeDropdown);
-    window.removeEventListener('hashchange', this.hashChangeListener);
   },
 
   unmounted() {
@@ -284,16 +278,14 @@ const sfc = {
       this.fetchPost(`${this.run.link}/approve`);
     },
 
-    createLogLine(line, startTime, stepIndex) {
+    createLogLine(line, startTime) {
       const div = document.createElement('div');
       div.classList.add('job-log-line');
-      div.setAttribute('id', `jobstep-${stepIndex}-${line.index}`);
       div._jobLogTime = line.timestamp;
 
-      const lineNumber = document.createElement('a');
-      lineNumber.classList.add('line-num', 'muted');
+      const lineNumber = document.createElement('div');
+      lineNumber.className = 'line-num';
       lineNumber.textContent = line.index;
-      lineNumber.setAttribute('href', `#jobstep-${stepIndex}-${line.index}`);
       div.append(lineNumber);
 
       // for "Show timestamps"
@@ -312,7 +304,7 @@ const sfc = {
 
       const logMessage = document.createElement('span');
       logMessage.className = 'log-msg';
-      logMessage.innerHTML = renderAnsi(line.message);
+      logMessage.innerHTML = ansiLogToHTML(line.message);
       div.append(logTimeStamp);
       div.append(logMessage);
       div.append(logTimeSeconds);
@@ -324,7 +316,7 @@ const sfc = {
       for (const line of logLines) {
         // TODO: group support: ##[group]GroupTitle , ##[endgroup]
         const el = this.getLogsContainer(stepIndex);
-        el.append(this.createLogLine(line, startTime, stepIndex));
+        el.append(this.createLogLine(line, startTime));
       }
     },
 
@@ -435,21 +427,6 @@ const sfc = {
       } else {
         actionBodyEl.append(fullScreenEl);
       }
-    },
-    async hashChangeListener() {
-      const selectedLogStep = window.location.hash;
-      if (!selectedLogStep) return;
-      const [_, step, _line] = selectedLogStep.split('-');
-      if (!this.currentJobStepsStates[step]) return;
-      if (!this.currentJobStepsStates[step].expanded && this.currentJobStepsStates[step].cursor === null) {
-        this.currentJobStepsStates[step].expanded = true;
-        // need to await for load job if the step log is loaded for the first time
-        // so logline can be selected by querySelector
-        await this.loadJob();
-      }
-      const logLine = this.$refs.steps.querySelector(selectedLogStep);
-      if (!logLine) return;
-      logLine.querySelector('.line-num').click();
     }
   },
 };
@@ -478,7 +455,6 @@ export function initRepositoryActionView() {
       showTimeStamps: el.getAttribute('data-locale-show-timestamps'),
       showLogSeconds: el.getAttribute('data-locale-show-log-seconds'),
       showFullScreen: el.getAttribute('data-locale-show-full-screen'),
-      downloadLogs: el.getAttribute('data-locale-download-logs'),
       status: {
         unknown: el.getAttribute('data-locale-status-unknown'),
         waiting: el.getAttribute('data-locale-status-waiting'),
@@ -492,6 +468,48 @@ export function initRepositoryActionView() {
     }
   });
   view.mount(el);
+}
+
+// some unhandled control sequences by AnsiToHTML
+// https://man7.org/linux/man-pages/man4/console_codes.4.html
+const ansiRegexpRemove = /\x1b\[\d+[A-H]/g; // Move cursor, treat them as no-op.
+const ansiRegexpNewLine = /\x1b\[\d?[JK]/g; // Erase display/line, treat them as a Carriage Return
+
+function ansiCleanControlSequences(line) {
+  if (line.includes('\x1b')) {
+    line = line.replace(ansiRegexpRemove, '');
+    line = line.replace(ansiRegexpNewLine, '\r');
+  }
+  return line;
+}
+
+export function ansiLogToHTML(line) {
+  if (line.endsWith('\r\n')) {
+    line = line.substring(0, line.length - 2);
+  } else if (line.endsWith('\n')) {
+    line = line.substring(0, line.length - 1);
+  }
+
+  // usually we do not need to process control chars like "\033[", let AnsiToHTML do it
+  // but AnsiToHTML has bugs, so we need to clean some control sequences first
+  line = ansiCleanControlSequences(line);
+
+  if (!line.includes('\r')) {
+    return ansiLogRender.toHtml(line);
+  }
+
+  // handle "\rReading...1%\rReading...5%\rReading...100%",
+  // convert it into a multiple-line string: "Reading...1%\nReading...5%\nReading...100%"
+  const lines = [];
+  for (const part of line.split('\r')) {
+    if (part === '') continue;
+    const partHtml = ansiLogRender.toHtml(part);
+    if (partHtml !== '') {
+      lines.push(partHtml);
+    }
+  }
+  // the log message element is with "white-space: break-spaces;", so use "\n" to break lines
+  return lines.join('\n');
 }
 
 </script>
@@ -820,13 +838,8 @@ export function initRepositoryActionView() {
   display: flex;
 }
 
-.job-log-line:hover,
-.job-log-line:target {
+.job-step-section .job-step-logs .job-log-line:hover {
   background-color: var(--color-console-hover-bg);
-}
-
-.job-log-line:target {
-  scroll-margin-top: 95px;
 }
 
 /* class names 'log-time-seconds' and 'log-time-stamp' are used in the method toggleTimeDisplay */
@@ -835,11 +848,6 @@ export function initRepositoryActionView() {
   color: var(--color-grey-light);
   text-align: right;
   user-select: none;
-}
-
-.job-log-line:target > .line-num {
-  color: var(--color-primary);
-  text-decoration: underline;
 }
 
 .log-time-seconds {

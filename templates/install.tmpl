@@ -119,12 +119,12 @@
 					</div>
 					<div class="inline required field {{if .Err_RunUser}}error{{end}}">
 						<label for="run_user">{{.locale.Tr "install.run_user"}}</label>
-						<input id="run_user" name="run_user" value="{{.run_user}}" readonly>
+						<input id="run_user" name="run_user" value="{{.run_user}}" required>
 						<span class="help">{{.locale.Tr "install.run_user_helper"}}</span>
 					</div>
 					<div class="inline required field">
 						<label for="domain">{{.locale.Tr "install.domain"}}</label>
-						<input id="domain" name="domain" value="{{.domain}}" placeholder="try.gitea.io" required>
+						<input id="domain" name="domain" value="{{.domain}}" placeholder="e.g. try.gitea.io" required>
 						<span class="help">{{.locale.Tr "install.domain_helper"}}</span>
 					</div>
 					<div class="inline field">
@@ -139,7 +139,7 @@
 					</div>
 					<div class="inline required field">
 						<label for="app_url">{{.locale.Tr "install.app_url"}}</label>
-						<input id="app_url" name="app_url" value="{{.app_url}}" placeholder="https://try.gitea.io" required>
+						<input id="app_url" name="app_url" value="{{.app_url}}" placeholder="e.g. https://try.gitea.io" required>
 						<span class="help">{{.locale.Tr "install.app_url_helper"}}</span>
 					</div>
 					<div class="inline required field">
@@ -154,6 +154,7 @@
 						</div>
 						<span class="help">{{.locale.Tr "install.enable_update_checker_helper"}}</span>
 					</div>
+
 
 					<!-- Optional Settings -->
 					<h4 class="ui dividing header">{{.locale.Tr "install.optional_title"}}</h4>
@@ -324,6 +325,8 @@
 					<!-- Environment Config -->
 					<h4 class="ui dividing header">{{.locale.Tr "install.env_config_keys"}}</h4>
 					<div class="inline field">
+						<label></label>
+						<button class="ui primary button">{{.locale.Tr "install.install_btn_confirm"}}</button>
 						<div class="right-content">
 							{{.locale.Tr "install.env_config_keys_prompt"}}
 						</div>
@@ -333,7 +336,8 @@
 					</div>
 					{{end}}
 
-					<div class="divider"></div>
+					<div class="ui divider"></div>
+
 					<div class="inline field">
 						<div class="right-content">
 							These configuration options will be written into: {{.CustomConfFile}}

@@ -6,7 +6,7 @@
 		<div class="navbar">
 			{{template "repo/issue/navbar" .}}
 		</div>
-		<div class="divider"></div>
+		<div class="ui divider"></div>
 		{{range .IssueTemplates}}
 			<div class="ui attached segment">
 				<div class="ui two column grid">
@@ -50,7 +50,7 @@
 			<div class="ui warning message">
 				<div class="text left">
 					<div>{{.locale.Tr "repo.issues.choose.invalid_config"}}</div>
-					<div>{{.IssueConfigError}}</div>
+					<diy>{{.IssueConfigError}}</div>
 				</div>
 			</div>
 		{{end}}

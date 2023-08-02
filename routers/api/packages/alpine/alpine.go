@@ -68,7 +68,7 @@ func GetRepositoryFile(ctx *context.Context) {
 		return
 	}
 
-	s, u, pf, err := packages_service.GetFileStreamByPackageVersion(
+	s, pf, err := packages_service.GetFileStreamByPackageVersion(
 		ctx,
 		pv,
 		&packages_service.PackageFileInfo{
@@ -84,8 +84,12 @@ func GetRepositoryFile(ctx *context.Context) {
 		}
 		return
 	}
+	defer s.Close()
 
-	helper.ServePackageFile(ctx, s, u, pf)
+	ctx.ServeContent(s, &context.ServeHeaderOptions{
+		Filename:     pf.Name,
+		LastModified: pf.CreatedUnix.AsLocalTime(),
+	})
 }
 
 func UploadPackageFile(ctx *context.Context) {
@@ -196,7 +200,7 @@ func DownloadPackageFile(ctx *context.Context) {
 		return
 	}
 
-	s, u, pf, err := packages_service.GetPackageFileStream(ctx, pfs[0])
+	s, pf, err := packages_service.GetPackageFileStream(ctx, pfs[0])
 	if err != nil {
 		if errors.Is(err, util.ErrNotExist) {
 			apiError(ctx, http.StatusNotFound, err)
@@ -205,8 +209,12 @@ func DownloadPackageFile(ctx *context.Context) {
 		}
 		return
 	}
+	defer s.Close()
 
-	helper.ServePackageFile(ctx, s, u, pf)
+	ctx.ServeContent(s, &context.ServeHeaderOptions{
+		Filename:     pf.Name,
+		LastModified: pf.CreatedUnix.AsLocalTime(),
+	})
 }
 
 func DeletePackageFile(ctx *context.Context) {

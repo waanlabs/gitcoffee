@@ -148,25 +148,27 @@ func CatFileBatch(ctx context.Context, repoPath string) (WriteCloserError, *bufi
 func ReadBatchLine(rd *bufio.Reader) (sha []byte, typ string, size int64, err error) {
 	typ, err = rd.ReadString('\n')
 	if err != nil {
-		return sha, typ, size, err
+		return
 	}
 	if len(typ) == 1 {
 		typ, err = rd.ReadString('\n')
 		if err != nil {
-			return sha, typ, size, err
+			return
 		}
 	}
 	idx := strings.IndexByte(typ, ' ')
 	if idx < 0 {
 		log.Debug("missing space typ: %s", typ)
-		return sha, typ, size, ErrNotExist{ID: string(sha)}
+		err = ErrNotExist{ID: string(sha)}
+		return
 	}
 	sha = []byte(typ[:idx])
 	typ = typ[idx+1:]
 
 	idx = strings.IndexByte(typ, ' ')
 	if idx < 0 {
-		return sha, typ, size, ErrNotExist{ID: string(sha)}
+		err = ErrNotExist{ID: string(sha)}
+		return
 	}
 
 	sizeStr := typ[idx+1 : len(typ)-1]
@@ -283,12 +285,14 @@ func ParseTreeLine(rd *bufio.Reader, modeBuf, fnameBuf, shaBuf []byte) (mode, fn
 	// Read the Mode & fname
 	readBytes, err = rd.ReadSlice('\x00')
 	if err != nil {
-		return mode, fname, sha, n, err
+		return
 	}
 	idx := bytes.IndexByte(readBytes, ' ')
 	if idx < 0 {
 		log.Debug("missing space in readBytes ParseTreeLine: %s", readBytes)
-		return mode, fname, sha, n, &ErrNotExist{}
+
+		err = &ErrNotExist{}
+		return
 	}
 
 	n += idx + 1
@@ -315,7 +319,7 @@ func ParseTreeLine(rd *bufio.Reader, modeBuf, fnameBuf, shaBuf []byte) (mode, fn
 	}
 	n += len(fnameBuf)
 	if err != nil {
-		return mode, fname, sha, n, err
+		return
 	}
 	fnameBuf = fnameBuf[:len(fnameBuf)-1]
 	fname = fnameBuf
@@ -327,7 +331,7 @@ func ParseTreeLine(rd *bufio.Reader, modeBuf, fnameBuf, shaBuf []byte) (mode, fn
 		read, err = rd.Read(shaBuf[idx:20])
 		n += read
 		if err != nil {
-			return mode, fname, sha, n, err
+			return
 		}
 		idx += read
 	}

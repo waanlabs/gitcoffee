@@ -67,5 +67,7 @@ func DeleteDefaultOrSystemWebhook(ctx *context.Context) {
 		ctx.Flash.Success(ctx.Tr("repo.settings.webhook_deletion_success"))
 	}
 
-	ctx.JSONRedirect(setting.AppSubURL + "/admin/hooks")
+	ctx.JSON(http.StatusOK, map[string]any{
+		"redirect": setting.AppSubURL + "/admin/hooks",
+	})
 }

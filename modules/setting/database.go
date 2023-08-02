@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"code.gitea.io/gitea/modules/log"
 )
 
 var (
@@ -34,7 +36,7 @@ var (
 		SSLMode           string
 		Path              string
 		LogSQL            bool
-		MysqlCharset      string
+		Charset           string
 		Timeout           int // seconds
 		SQLiteJournalMode string
 		DBConnectRetries  int
@@ -67,7 +69,11 @@ func loadDBSetting(rootCfg ConfigProvider) {
 	}
 	Database.Schema = sec.Key("SCHEMA").String()
 	Database.SSLMode = sec.Key("SSL_MODE").MustString("disable")
-	Database.MysqlCharset = sec.Key("MYSQL_CHARSET").MustString("utf8mb4") // do not document it, end users won't need it.
+
+	Database.Charset = sec.Key("CHARSET").MustString("utf8mb4")
+	if Database.Type.IsMySQL() && Database.Charset != "utf8mb4" {
+		log.Error(`Deprecated database mysql charset utf8 support, please use utf8mb4 and convert utf8 database to utf8mb4 by "gitea convert".`)
+	}
 
 	Database.Path = sec.Key("PATH").MustString(filepath.Join(AppDataPath, "gitea.db"))
 	Database.Timeout = sec.Key("SQLITE_TIMEOUT").MustInt(500)
@@ -106,7 +112,7 @@ func DBConnStr() (string, error) {
 			tls = "false"
 		}
 		connStr = fmt.Sprintf("%s:%s@%s(%s)/%s%scharset=%s&parseTime=true&tls=%s",
-			Database.User, Database.Passwd, connType, Database.Host, Database.Name, paramSep, Database.MysqlCharset, tls)
+			Database.User, Database.Passwd, connType, Database.Host, Database.Name, paramSep, Database.Charset, tls)
 	case "postgres":
 		connStr = getPostgreSQLConnectionString(Database.Host, Database.User, Database.Passwd, Database.Name, paramSep, Database.SSLMode)
 	case "mssql":

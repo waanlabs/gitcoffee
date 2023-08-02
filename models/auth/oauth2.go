@@ -306,10 +306,9 @@ func (code *OAuth2AuthorizationCode) TableName() string {
 }
 
 // GenerateRedirectURI generates a redirect URI for a successful authorization request. State will be used if not empty.
-func (code *OAuth2AuthorizationCode) GenerateRedirectURI(state string) (*url.URL, error) {
-	redirect, err := url.Parse(code.RedirectURI)
-	if err != nil {
-		return nil, err
+func (code *OAuth2AuthorizationCode) GenerateRedirectURI(state string) (redirect *url.URL, err error) {
+	if redirect, err = url.Parse(code.RedirectURI); err != nil {
+		return
 	}
 	q := redirect.Query()
 	if state != "" {

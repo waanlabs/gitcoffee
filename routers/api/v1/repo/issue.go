@@ -132,72 +132,73 @@ func SearchIssues(ctx *context.APIContext) {
 		isClosed = util.OptionalBoolFalse
 	}
 
-	var (
-		repoIDs   []int64
-		allPublic bool
-	)
-	{
-		// find repos user can access (for issue search)
-		opts := &repo_model.SearchRepoOptions{
-			Private:     false,
-			AllPublic:   true,
-			TopicOnly:   false,
-			Collaborate: util.OptionalBoolNone,
-			// This needs to be a column that is not nil in fixtures or
-			// MySQL will return different results when sorting by null in some cases
-			OrderBy: db.SearchOrderByAlphabetically,
-			Actor:   ctx.Doer,
-		}
-		if ctx.IsSigned {
-			opts.Private = true
-			opts.AllLimited = true
-		}
-		if ctx.FormString("owner") != "" {
-			owner, err := user_model.GetUserByName(ctx, ctx.FormString("owner"))
-			if err != nil {
-				if user_model.IsErrUserNotExist(err) {
-					ctx.Error(http.StatusBadRequest, "Owner not found", err)
-				} else {
-					ctx.Error(http.StatusInternalServerError, "GetUserByName", err)
-				}
-				return
-			}
-			opts.OwnerID = owner.ID
-			opts.AllLimited = false
-			opts.AllPublic = false
-			opts.Collaborate = util.OptionalBoolFalse
-		}
-		if ctx.FormString("team") != "" {
-			if ctx.FormString("owner") == "" {
-				ctx.Error(http.StatusBadRequest, "", "Owner organisation is required for filtering on team")
-				return
-			}
-			team, err := organization.GetTeam(ctx, opts.OwnerID, ctx.FormString("team"))
-			if err != nil {
-				if organization.IsErrTeamNotExist(err) {
-					ctx.Error(http.StatusBadRequest, "Team not found", err)
-				} else {
-					ctx.Error(http.StatusInternalServerError, "GetUserByName", err)
-				}
-				return
-			}
-			opts.TeamID = team.ID
-		}
-
-		if opts.AllPublic {
-			allPublic = true
-			opts.AllPublic = false // set it false to avoid returning too many repos, we could filter by indexer
-		}
-		repoIDs, _, err = repo_model.SearchRepositoryIDs(opts)
+	// find repos user can access (for issue search)
+	opts := &repo_model.SearchRepoOptions{
+		Private:     false,
+		AllPublic:   true,
+		TopicOnly:   false,
+		Collaborate: util.OptionalBoolNone,
+		// This needs to be a column that is not nil in fixtures or
+		// MySQL will return different results when sorting by null in some cases
+		OrderBy: db.SearchOrderByAlphabetically,
+		Actor:   ctx.Doer,
+	}
+	if ctx.IsSigned {
+		opts.Private = true
+		opts.AllLimited = true
+	}
+	if ctx.FormString("owner") != "" {
+		owner, err := user_model.GetUserByName(ctx, ctx.FormString("owner"))
 		if err != nil {
-			ctx.Error(http.StatusInternalServerError, "SearchRepositoryIDs", err)
+			if user_model.IsErrUserNotExist(err) {
+				ctx.Error(http.StatusBadRequest, "Owner not found", err)
+			} else {
+				ctx.Error(http.StatusInternalServerError, "GetUserByName", err)
+			}
 			return
 		}
+		opts.OwnerID = owner.ID
+		opts.AllLimited = false
+		opts.AllPublic = false
+		opts.Collaborate = util.OptionalBoolFalse
 	}
+	if ctx.FormString("team") != "" {
+		if ctx.FormString("owner") == "" {
+			ctx.Error(http.StatusBadRequest, "", "Owner organisation is required for filtering on team")
+			return
+		}
+		team, err := organization.GetTeam(ctx, opts.OwnerID, ctx.FormString("team"))
+		if err != nil {
+			if organization.IsErrTeamNotExist(err) {
+				ctx.Error(http.StatusBadRequest, "Team not found", err)
+			} else {
+				ctx.Error(http.StatusInternalServerError, "GetUserByName", err)
+			}
+			return
+		}
+		opts.TeamID = team.ID
+	}
+
+	repoCond := repo_model.SearchRepositoryCondition(opts)
+	repoIDs, _, err := repo_model.SearchRepositoryIDs(opts)
+	if err != nil {
+		ctx.Error(http.StatusInternalServerError, "SearchRepositoryIDs", err)
+		return
+	}
+
+	var issues []*issues_model.Issue
+	var filteredCount int64
 
 	keyword := ctx.FormTrim("q")
 	if strings.IndexByte(keyword, 0) >= 0 {
 		keyword = ""
+	}
+	var issueIDs []int64
+	if len(keyword) > 0 && len(repoIDs) > 0 {
+		if issueIDs, err = issue_indexer.SearchIssuesByKeyword(ctx, repoIDs, keyword); err != nil {
+			ctx.Error(http.StatusInternalServerError, "SearchIssuesByKeyword", err)
+			return
+		}
 	}
 
 	var isPull util.OptionalBool
@@ -210,33 +211,16 @@ func SearchIssues(ctx *context.APIContext) {
 		isPull = util.OptionalBoolNone
 	}
 
-	var includedAnyLabels []int64
-	{
-
-		labels := ctx.FormTrim("labels")
-		var includedLabelNames []string
-		if len(labels) > 0 {
-			includedLabelNames = strings.Split(labels, ",")
-		}
-		includedAnyLabels, err = issues_model.GetLabelIDsByNames(ctx, includedLabelNames)
-		if err != nil {
-			ctx.Error(http.StatusInternalServerError, "GetLabelIDsByNames", err)
-			return
-		}
+	labels := ctx.FormTrim("labels")
+	var includedLabelNames []string
+	if len(labels) > 0 {
+		includedLabelNames = strings.Split(labels, ",")
 	}
 
-	var includedMilestones []int64
-	{
-		milestones := ctx.FormTrim("milestones")
-		var includedMilestoneNames []string
-		if len(milestones) > 0 {
-			includedMilestoneNames = strings.Split(milestones, ",")
-		}
-		includedMilestones, err = issues_model.GetMilestoneIDsByNames(ctx, includedMilestoneNames)
-		if err != nil {
-			ctx.Error(http.StatusInternalServerError, "GetMilestoneIDsByNames", err)
-			return
-		}
+	milestones := ctx.FormTrim("milestones")
+	var includedMilestones []string
+	if len(milestones) > 0 {
+		includedMilestones = strings.Split(milestones, ",")
 	}
 
 	// this api is also used in UI,
@@ -248,64 +232,64 @@ func SearchIssues(ctx *context.APIContext) {
 		limit = setting.API.MaxResponseItems
 	}
 
-	searchOpt := &issue_indexer.SearchOptions{
-		Paginator: &db.ListOptions{
-			PageSize: limit,
-			Page:     ctx.FormInt("page"),
-		},
-		Keyword:             keyword,
-		RepoIDs:             repoIDs,
-		AllPublic:           allPublic,
-		IsPull:              isPull,
-		IsClosed:            isClosed,
-		IncludedAnyLabelIDs: includedAnyLabels,
-		MilestoneIDs:        includedMilestones,
-		SortBy:              issue_indexer.SortByCreatedDesc,
-	}
+	// Only fetch the issues if we either don't have a keyword or the search returned issues
+	// This would otherwise return all issues if no issues were found by the search.
+	if len(keyword) == 0 || len(issueIDs) > 0 || len(includedLabelNames) > 0 || len(includedMilestones) > 0 {
+		issuesOpt := &issues_model.IssuesOptions{
+			ListOptions: db.ListOptions{
+				Page:     ctx.FormInt("page"),
+				PageSize: limit,
+			},
+			RepoCond:           repoCond,
+			IsClosed:           isClosed,
+			IssueIDs:           issueIDs,
+			IncludedLabelNames: includedLabelNames,
+			IncludeMilestones:  includedMilestones,
+			SortType:           "priorityrepo",
+			PriorityRepoID:     ctx.FormInt64("priority_repo_id"),
+			IsPull:             isPull,
+			UpdatedBeforeUnix:  before,
+			UpdatedAfterUnix:   since,
+		}
 
-	if since != 0 {
-		searchOpt.UpdatedAfterUnix = &since
-	}
-	if before != 0 {
-		searchOpt.UpdatedBeforeUnix = &before
-	}
+		ctxUserID := int64(0)
+		if ctx.IsSigned {
+			ctxUserID = ctx.Doer.ID
+		}
 
-	if ctx.IsSigned {
-		ctxUserID := ctx.Doer.ID
+		// Filter for: Created by User, Assigned to User, Mentioning User, Review of User Requested
 		if ctx.FormBool("created") {
-			searchOpt.PosterID = &ctxUserID
+			issuesOpt.PosterID = ctxUserID
 		}
 		if ctx.FormBool("assigned") {
-			searchOpt.AssigneeID = &ctxUserID
+			issuesOpt.AssigneeID = ctxUserID
 		}
 		if ctx.FormBool("mentioned") {
-			searchOpt.MentionID = &ctxUserID
+			issuesOpt.MentionedID = ctxUserID
 		}
 		if ctx.FormBool("review_requested") {
-			searchOpt.ReviewRequestedID = &ctxUserID
+			issuesOpt.ReviewRequestedID = ctxUserID
 		}
 		if ctx.FormBool("reviewed") {
-			searchOpt.ReviewedID = &ctxUserID
+			issuesOpt.ReviewedID = ctxUserID
+		}
+
+		if issues, err = issues_model.Issues(ctx, issuesOpt); err != nil {
+			ctx.Error(http.StatusInternalServerError, "Issues", err)
+			return
+		}
+
+		issuesOpt.ListOptions = db.ListOptions{
+			Page: -1,
+		}
+		if filteredCount, err = issues_model.CountIssues(ctx, issuesOpt); err != nil {
+			ctx.Error(http.StatusInternalServerError, "CountIssues", err)
+			return
 		}
 	}
 
-	// FIXME: It's unsupported to sort by priority repo when searching by indexer,
-	//        it's indeed an regression, but I think it is worth to support filtering by indexer first.
-	_ = ctx.FormInt64("priority_repo_id")
-
-	ids, total, err := issue_indexer.SearchIssues(ctx, searchOpt)
-	if err != nil {
-		ctx.Error(http.StatusInternalServerError, "SearchIssues", err)
-		return
-	}
-	issues, err := issues_model.GetIssuesByIDs(ctx, ids, true)
-	if err != nil {
-		ctx.Error(http.StatusInternalServerError, "FindIssuesByIDs", err)
-		return
-	}
-
-	ctx.SetLinkHeader(int(total), limit)
-	ctx.SetTotalCountHeader(total)
+	ctx.SetLinkHeader(int(filteredCount), limit)
+	ctx.SetTotalCountHeader(filteredCount)
 	ctx.JSON(http.StatusOK, convert.ToAPIIssueList(ctx, issues))
 }
 
@@ -400,12 +384,23 @@ func ListIssues(ctx *context.APIContext) {
 		isClosed = util.OptionalBoolFalse
 	}
 
+	var issues []*issues_model.Issue
+	var filteredCount int64
+
 	keyword := ctx.FormTrim("q")
 	if strings.IndexByte(keyword, 0) >= 0 {
 		keyword = ""
 	}
-
+	var issueIDs []int64
 	var labelIDs []int64
+	if len(keyword) > 0 {
+		issueIDs, err = issue_indexer.SearchIssuesByKeyword(ctx, []int64{ctx.Repo.Repository.ID}, keyword)
+		if err != nil {
+			ctx.Error(http.StatusInternalServerError, "SearchIssuesByKeyword", err)
+			return
+		}
+	}
+
 	if splitted := strings.Split(ctx.FormString("labels"), ","); len(splitted) > 0 {
 		labelIDs, err = issues_model.GetLabelIDsInRepoByNames(ctx.Repo.Repository.ID, splitted)
 		if err != nil {
@@ -470,61 +465,40 @@ func ListIssues(ctx *context.APIContext) {
 		return
 	}
 
-	searchOpt := &issue_indexer.SearchOptions{
-		Paginator: &listOptions,
-		Keyword:   keyword,
-		RepoIDs:   []int64{ctx.Repo.Repository.ID},
-		IsPull:    isPull,
-		IsClosed:  isClosed,
-		SortBy:    issue_indexer.SortByCreatedDesc,
-	}
-	if since != 0 {
-		searchOpt.UpdatedAfterUnix = &since
-	}
-	if before != 0 {
-		searchOpt.UpdatedBeforeUnix = &before
-	}
-	if len(labelIDs) == 1 && labelIDs[0] == 0 {
-		searchOpt.NoLabelOnly = true
-	} else {
-		for _, labelID := range labelIDs {
-			if labelID > 0 {
-				searchOpt.IncludedLabelIDs = append(searchOpt.IncludedLabelIDs, labelID)
-			} else {
-				searchOpt.ExcludedLabelIDs = append(searchOpt.ExcludedLabelIDs, -labelID)
-			}
+	// Only fetch the issues if we either don't have a keyword or the search returned issues
+	// This would otherwise return all issues if no issues were found by the search.
+	if len(keyword) == 0 || len(issueIDs) > 0 || len(labelIDs) > 0 {
+		issuesOpt := &issues_model.IssuesOptions{
+			ListOptions:       listOptions,
+			RepoIDs:           []int64{ctx.Repo.Repository.ID},
+			IsClosed:          isClosed,
+			IssueIDs:          issueIDs,
+			LabelIDs:          labelIDs,
+			MilestoneIDs:      mileIDs,
+			IsPull:            isPull,
+			UpdatedBeforeUnix: before,
+			UpdatedAfterUnix:  since,
+			PosterID:          createdByID,
+			AssigneeID:        assignedByID,
+			MentionedID:       mentionedByID,
+		}
+
+		if issues, err = issues_model.Issues(ctx, issuesOpt); err != nil {
+			ctx.Error(http.StatusInternalServerError, "Issues", err)
+			return
+		}
+
+		issuesOpt.ListOptions = db.ListOptions{
+			Page: -1,
+		}
+		if filteredCount, err = issues_model.CountIssues(ctx, issuesOpt); err != nil {
+			ctx.Error(http.StatusInternalServerError, "CountIssues", err)
+			return
 		}
 	}
 
-	if len(mileIDs) == 1 && mileIDs[0] == db.NoConditionID {
-		searchOpt.MilestoneIDs = []int64{0}
-	} else {
-		searchOpt.MilestoneIDs = mileIDs
-	}
-
-	if createdByID > 0 {
-		searchOpt.PosterID = &createdByID
-	}
-	if assignedByID > 0 {
-		searchOpt.AssigneeID = &assignedByID
-	}
-	if mentionedByID > 0 {
-		searchOpt.MentionID = &mentionedByID
-	}
-
-	ids, total, err := issue_indexer.SearchIssues(ctx, searchOpt)
-	if err != nil {
-		ctx.Error(http.StatusInternalServerError, "SearchIssues", err)
-		return
-	}
-	issues, err := issues_model.GetIssuesByIDs(ctx, ids, true)
-	if err != nil {
-		ctx.Error(http.StatusInternalServerError, "FindIssuesByIDs", err)
-		return
-	}
-
-	ctx.SetLinkHeader(int(total), listOptions.PageSize)
-	ctx.SetTotalCountHeader(total)
+	ctx.SetLinkHeader(int(filteredCount), listOptions.PageSize)
+	ctx.SetTotalCountHeader(filteredCount)
 	ctx.JSON(http.StatusOK, convert.ToAPIIssueList(ctx, issues))
 }
 
@@ -578,7 +552,7 @@ func GetIssue(ctx *context.APIContext) {
 	//   "404":
 	//     "$ref": "#/responses/notFound"
 
-	issue, err := issues_model.GetIssueWithAttrsByIndex(ctx, ctx.Repo.Repository.ID, ctx.ParamsInt64(":index"))
+	issue, err := issues_model.GetIssueWithAttrsByIndex(ctx.Repo.Repository.ID, ctx.ParamsInt64(":index"))
 	if err != nil {
 		if issues_model.IsErrIssueNotExist(err) {
 			ctx.NotFound()
@@ -687,7 +661,7 @@ func CreateIssue(ctx *context.APIContext) {
 	}
 
 	if form.Closed {
-		if err := issue_service.ChangeStatus(ctx, issue, ctx.Doer, "", true); err != nil {
+		if err := issue_service.ChangeStatus(issue, ctx.Doer, "", true); err != nil {
 			if issues_model.IsErrDependenciesLeft(err) {
 				ctx.Error(http.StatusPreconditionFailed, "DependenciesLeft", "cannot close this issue because it still has open dependencies")
 				return
@@ -747,7 +721,7 @@ func EditIssue(ctx *context.APIContext) {
 	//     "$ref": "#/responses/error"
 
 	form := web.GetForm(ctx).(*api.EditIssueOption)
-	issue, err := issues_model.GetIssueByIndex(ctx, ctx.Repo.Repository.ID, ctx.ParamsInt64(":index"))
+	issue, err := issues_model.GetIssueByIndex(ctx.Repo.Repository.ID, ctx.ParamsInt64(":index"))
 	if err != nil {
 		if issues_model.IsErrIssueNotExist(err) {
 			ctx.NotFound()
@@ -903,7 +877,7 @@ func DeleteIssue(ctx *context.APIContext) {
 	//     "$ref": "#/responses/forbidden"
 	//   "404":
 	//     "$ref": "#/responses/notFound"
-	issue, err := issues_model.GetIssueByIndex(ctx, ctx.Repo.Repository.ID, ctx.ParamsInt64(":index"))
+	issue, err := issues_model.GetIssueByIndex(ctx.Repo.Repository.ID, ctx.ParamsInt64(":index"))
 	if err != nil {
 		if issues_model.IsErrIssueNotExist(err) {
 			ctx.NotFound(err)
@@ -959,7 +933,7 @@ func UpdateIssueDeadline(ctx *context.APIContext) {
 	//   "404":
 	//     "$ref": "#/responses/notFound"
 	form := web.GetForm(ctx).(*api.EditDeadlineOption)
-	issue, err := issues_model.GetIssueByIndex(ctx, ctx.Repo.Repository.ID, ctx.ParamsInt64(":index"))
+	issue, err := issues_model.GetIssueByIndex(ctx.Repo.Repository.ID, ctx.ParamsInt64(":index"))
 	if err != nil {
 		if issues_model.IsErrIssueNotExist(err) {
 			ctx.NotFound()

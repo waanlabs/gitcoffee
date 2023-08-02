@@ -69,5 +69,4 @@ type CommitDateOptions struct {
 // CommitAffectedFiles store information about files affected by the commit
 type CommitAffectedFiles struct {
 	Filename string `json:"filename"`
-	Status   string `json:"status"`
 }

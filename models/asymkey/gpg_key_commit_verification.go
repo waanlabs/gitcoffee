@@ -455,9 +455,9 @@ func hashAndVerifyForKeyID(sig *packet.Signature, payload string, committer *use
 
 // CalculateTrustStatus will calculate the TrustStatus for a commit verification within a repository
 // There are several trust models in Gitea
-func CalculateTrustStatus(verification *CommitVerification, repoTrustModel repo_model.TrustModelType, isOwnerMemberCollaborator func(*user_model.User) (bool, error), keyMap *map[string]bool) error {
+func CalculateTrustStatus(verification *CommitVerification, repoTrustModel repo_model.TrustModelType, isOwnerMemberCollaborator func(*user_model.User) (bool, error), keyMap *map[string]bool) (err error) {
 	if !verification.Verified {
-		return nil
+		return
 	}
 
 	// In the Committer trust model a signature is trusted if it matches the committer
@@ -475,7 +475,7 @@ func CalculateTrustStatus(verification *CommitVerification, repoTrustModel repo_
 				verification.SigningUser.Email == verification.CommittingUser.Email) {
 			verification.TrustStatus = "trusted"
 		}
-		return nil
+		return
 	}
 
 	// Now we drop to the more nuanced trust models...
@@ -490,11 +490,10 @@ func CalculateTrustStatus(verification *CommitVerification, repoTrustModel repo_
 			verification.SigningUser.Email != verification.CommittingUser.Email) {
 			verification.TrustStatus = "untrusted"
 		}
-		return nil
+		return
 	}
 
 	// Check we actually have a GPG SigningKey
-	var err error
 	if verification.SigningKey != nil {
 		var isMember bool
 		if keyMap != nil {

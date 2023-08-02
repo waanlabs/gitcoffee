@@ -186,7 +186,7 @@ To add your own theme, currently the only way is to provide a complete theme (no
 
 As an example, let's say our theme is `arc-blue` (this is a real theme, and can be found [in this issue](https://github.com/go-gitea/gitea/issues/6011))
 
-Name the `.css` file `theme-arc-blue.css` and add it to your custom folder in `custom/public/assets/css`
+Name the `.css` file `theme-arc-blue.css` and add it to your custom folder in `custom/public/css`
 
 Allow users to use it by adding `arc-blue` to the list of `THEMES` in your `app.ini`
 
@@ -389,6 +389,8 @@ the `utf8` charset, and connections which use the `utf8` charset will not use th
 Please run `gitea convert`, or run `ALTER DATABASE database_name CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;`
 for the database_name and run `ALTER TABLE table_name CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;`
 for each table in the database.
+
+You will also need to change the app.ini database charset to `CHARSET=utf8mb4`.
 
 ## Why are Emoji displaying only as placeholders or in monochrome
 

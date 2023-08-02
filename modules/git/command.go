@@ -301,8 +301,6 @@ func (c *Command) Run(opts *RunOpts) error {
 	}
 	defer finished()
 
-	startTime := time.Now()
-
 	cmd := exec.CommandContext(ctx, c.prog, c.args...)
 	if opts.Env == nil {
 		cmd.Env = os.Environ()
@@ -329,13 +327,7 @@ func (c *Command) Run(opts *RunOpts) error {
 		}
 	}
 
-	err := cmd.Wait()
-	elapsed := time.Since(startTime)
-	if elapsed > time.Second {
-		log.Debug("slow git.Command.Run: %s (%s)", c, elapsed)
-	}
-
-	if err != nil && ctx.Err() != context.DeadlineExceeded {
+	if err := cmd.Wait(); err != nil && ctx.Err() != context.DeadlineExceeded {
 		return err
 	}
 

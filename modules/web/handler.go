@@ -9,15 +9,25 @@ import (
 	"net/http"
 	"reflect"
 
+	"code.gitea.io/gitea/modules/context"
 	"code.gitea.io/gitea/modules/log"
 	"code.gitea.io/gitea/modules/web/routing"
-	"code.gitea.io/gitea/modules/web/types"
 )
 
-var responseStatusProviders = map[reflect.Type]func(req *http.Request) types.ResponseStatusProvider{}
+// ResponseStatusProvider is an interface to check whether the response has been written by the handler
+type ResponseStatusProvider interface {
+	Written() bool
+}
 
-func RegisterResponseStatusProvider[T any](fn func(req *http.Request) types.ResponseStatusProvider) {
-	responseStatusProviders[reflect.TypeOf((*T)(nil)).Elem()] = fn
+// TODO: decouple this from the context package, let the context package register these providers
+var argTypeProvider = map[reflect.Type]func(req *http.Request) ResponseStatusProvider{
+	reflect.TypeOf(&context.APIContext{}):     func(req *http.Request) ResponseStatusProvider { return context.GetAPIContext(req) },
+	reflect.TypeOf(&context.Context{}):        func(req *http.Request) ResponseStatusProvider { return context.GetWebContext(req) },
+	reflect.TypeOf(&context.PrivateContext{}): func(req *http.Request) ResponseStatusProvider { return context.GetPrivateContext(req) },
+}
+
+func RegisterHandleTypeProvider[T any](fn func(req *http.Request) ResponseStatusProvider) {
+	argTypeProvider[reflect.TypeOf((*T)(nil)).Elem()] = fn
 }
 
 // responseWriter is a wrapper of http.ResponseWriter, to check whether the response has been written
@@ -26,10 +36,10 @@ type responseWriter struct {
 	status     int
 }
 
-var _ types.ResponseStatusProvider = (*responseWriter)(nil)
+var _ ResponseStatusProvider = (*responseWriter)(nil)
 
-func (r *responseWriter) WrittenStatus() int {
-	return r.status
+func (r *responseWriter) Written() bool {
+	return r.status > 0
 }
 
 func (r *responseWriter) Header() http.Header {
@@ -58,7 +68,7 @@ var (
 func preCheckHandler(fn reflect.Value, argsIn []reflect.Value) {
 	hasStatusProvider := false
 	for _, argIn := range argsIn {
-		if _, hasStatusProvider = argIn.Interface().(types.ResponseStatusProvider); hasStatusProvider {
+		if _, hasStatusProvider = argIn.Interface().(ResponseStatusProvider); hasStatusProvider {
 			break
 		}
 	}
@@ -91,7 +101,7 @@ func prepareHandleArgsIn(resp http.ResponseWriter, req *http.Request, fn reflect
 		case httpReqType:
 			argsIn[i] = reflect.ValueOf(req)
 		default:
-			if argFn, ok := responseStatusProviders[argTyp]; ok {
+			if argFn, ok := argTypeProvider[argTyp]; ok {
 				if isPreCheck {
 					argsIn[i] = reflect.ValueOf(&responseWriter{})
 				} else {
@@ -119,8 +129,8 @@ func handleResponse(fn reflect.Value, ret []reflect.Value) goctx.CancelFunc {
 
 func hasResponseBeenWritten(argsIn []reflect.Value) bool {
 	for _, argIn := range argsIn {
-		if statusProvider, ok := argIn.Interface().(types.ResponseStatusProvider); ok {
-			if statusProvider.WrittenStatus() != 0 {
+		if statusProvider, ok := argIn.Interface().(ResponseStatusProvider); ok {
+			if statusProvider.Written() {
 				return true
 			}
 		}
@@ -151,7 +161,7 @@ func toHandlerProvider(handler any) func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(respOrig http.ResponseWriter, req *http.Request) {
 			// wrap the response writer to check whether the response has been written
 			resp := respOrig
-			if _, ok := resp.(types.ResponseStatusProvider); !ok {
+			if _, ok := resp.(ResponseStatusProvider); !ok {
 				resp = &responseWriter{respWriter: resp}
 			}
 

@@ -17,7 +17,7 @@ type ContextDataStore interface {
 
 type ContextData map[string]any
 
-func (ds ContextData) GetData() ContextData {
+func (ds ContextData) GetData() map[string]any {
 	return ds
 }
 

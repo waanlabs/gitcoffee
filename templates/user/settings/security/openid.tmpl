@@ -2,20 +2,19 @@
 	{{.locale.Tr "settings.manage_openid"}}
 </h4>
 <div class="ui attached segment">
-	<div class="flex-list">
-		<div class="flex-item">
+	<div class="ui openid list">
+		<div class="item">
 			{{.locale.Tr "settings.openid_desc"}}
 		</div>
 		{{range .OpenIDs}}
-			<div class="flex-item flex-item-center">
-				<div class="flex-item-leading">
-					{{svg "fontawesome-openid" 20}}
+			<div class="item">
+				<div class="right floated content">
+						<button class="ui red tiny button delete-button" data-modal-id="delete-openid" data-url="{{AppSubUrl}}/user/settings/security/openid/delete" data-id="{{.ID}}">
+							{{$.locale.Tr "settings.delete_key"}}
+						</button>
 				</div>
-				<div class="flex-item-main">
-					<div class="flex-item-title">{{.URI}}</div>
-				</div>
-				<div class="flex-item-trailing">
-					<form action="{{AppSubUrl}}/user/settings/security/openid/toggle_visibility" method="post">
+					<div class="right floated content">
+						<form action="{{AppSubUrl}}/user/settings/security/openid/toggle_visibility" method="post">
 						{{$.CsrfTokenHtml}}
 						<input name="id" type="hidden" value="{{.ID}}">
 						{{if .Show}}
@@ -29,11 +28,12 @@
 							{{$.locale.Tr "settings.show_openid"}}
 							</button>
 						{{end}}
-					</form>
-					<button class="ui red tiny button delete-button" data-modal-id="delete-openid" data-url="{{AppSubUrl}}/user/settings/security/openid/delete" data-id="{{.ID}}">
-						{{$.locale.Tr "settings.delete_key"}}
-					</button>
-				</div>
+						</button>
+						</form>
+					</div>
+					<div class="content">
+						<strong>{{.URI}}</strong>
+					</div>
 			</div>
 		{{end}}
 	</div>

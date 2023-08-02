@@ -18,10 +18,6 @@
 							<label for="full_name">{{.locale.Tr "org.org_full_name_holder"}}</label>
 							<input id="full_name" name="full_name" value="{{.Org.FullName}}" maxlength="100">
 						</div>
-						<div class="field {{if .Err_Email}}error{{end}}">
-							<label for="email">{{.locale.Tr "org.settings.email"}}</label>
-							<input id="email" name="email" type="email" value="{{.Org.Email}}" maxlength="255">
-						</div>
 						<div class="field {{if .Err_Description}}error{{end}}">
 							<label for="description">{{$.locale.Tr "org.org_desc"}}</label>
 							<textarea id="description" name="description" rows="2" maxlength="255">{{.Org.Description}}</textarea>
@@ -35,7 +31,7 @@
 							<input id="location" name="location"  value="{{.Org.Location}}" maxlength="50">
 						</div>
 
-						<div class="divider"></div>
+						<div class="ui divider"></div>
 						<div class="field" id="visibility_box">
 							<label for="visibility">{{.locale.Tr "org.settings.visibility"}}</label>
 							<div class="field">
@@ -69,7 +65,7 @@
 						</div>
 
 						{{if .SignedUser.IsAdmin}}
-						<div class="divider"></div>
+						<div class="ui divider"></div>
 
 						<div class="inline field {{if .Err_MaxRepoCreation}}error{{end}}">
 							<label for="max_repo_creation">{{.locale.Tr "admin.users.max_repo_creation"}}</label>
@@ -83,7 +79,7 @@
 						</div>
 					</form>
 
-					<div class="divider"></div>
+					<div class="ui divider"></div>
 
 					<form class="ui form" action="{{.Link}}/avatar" method="post" enctype="multipart/form-data">
 						{{.CsrfTokenHtml}}
@@ -94,7 +90,7 @@
 
 						<div class="field">
 							<button class="ui green button">{{$.locale.Tr "settings.update_avatar"}}</button>
-							<button class="ui red button link-action" data-url="{{.Link}}/avatar/delete" data-redirect="{{.Link}}">{{$.locale.Tr "settings.delete_current_avatar"}}</button>
+							<a class="ui red button delete-post" data-request-url="{{.Link}}/avatar/delete" data-done-url="{{.Link}}">{{$.locale.Tr "settings.delete_current_avatar"}}</a>
 						</div>
 					</form>
 				</div>

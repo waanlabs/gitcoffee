@@ -1,8 +1,7 @@
 {{template "base/head" .}}
 <div role="main" aria-label="{{.Title}}" class="page-content repository view issue packages">
-	{{template "shared/user/org_profile_avatar" .}}
+	{{template "user/overview/header" .}}
 	<div class="ui container">
-		{{template "user/overview/header" .}}
 		<div class="issue-title-header">
 			<div class="issue-title">
 				<h1>{{.PackageDescriptor.Package.Name}} ({{.PackageDescriptor.Version.Version}})</h1>
@@ -74,7 +73,7 @@
 					{{end}}
 				</div>
 				{{if not (eq .PackageDescriptor.Package.Type "container")}}
-					<div class="divider"></div>
+					<div class="ui divider"></div>
 					<strong>{{.locale.Tr "packages.assets"}} ({{len .PackageDescriptor.Files}})</strong>
 					<div class="ui relaxed list">
 					{{range .PackageDescriptor.Files}}
@@ -85,7 +84,7 @@
 					{{end}}
 					</div>
 				{{end}}
-				<div class="divider"></div>
+				<div class="ui divider"></div>
 				<strong>{{.locale.Tr "packages.versions"}} ({{.TotalVersionCount}})</strong>
 				<a class="ui right" href="{{$.PackageDescriptor.PackageWebLink}}/versions">{{.locale.Tr "packages.versions.view_all"}}</a>
 				<div class="ui relaxed list">
@@ -97,7 +96,7 @@
 				{{end}}
 				</div>
 				{{if or .CanWritePackages .HasRepositoryAccess}}
-					<div class="divider"></div>
+					<div class="ui divider"></div>
 					<div class="ui relaxed list">
 						{{if .HasRepositoryAccess}}
 						<div class="item">{{svg "octicon-issue-opened" 16 "gt-mr-3"}} <a href="{{.PackageDescriptor.Repository.Link}}/issues">{{.locale.Tr "repo.issues"}}</a></div>

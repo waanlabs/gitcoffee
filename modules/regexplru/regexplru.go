@@ -8,14 +8,14 @@ import (
 
 	"code.gitea.io/gitea/modules/log"
 
-	lru "github.com/hashicorp/golang-lru/v2"
+	lru "github.com/hashicorp/golang-lru"
 )
 
-var lruCache *lru.Cache[string, any]
+var lruCache *lru.Cache
 
 func init() {
 	var err error
-	lruCache, err = lru.New[string, any](1000)
+	lruCache, err = lru.New(1000)
 	if err != nil {
 		log.Fatal("failed to new LRU cache, err: %v", err)
 	}

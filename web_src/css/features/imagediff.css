@@ -50,7 +50,11 @@
   overflow: hidden;
 }
 
-.image-diff-container .diff-swipe .swipe-frame .swipe-container .after-container {
+.image-diff-container
+  .diff-swipe
+  .swipe-frame
+  .swipe-container
+  .after-container {
   position: absolute;
   right: 0;
 }

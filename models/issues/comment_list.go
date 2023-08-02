@@ -465,40 +465,49 @@ func (comments CommentList) loadReviews(ctx context.Context) error {
 	return nil
 }
 
-// LoadAttributes loads attributes of the comments, except for attachments and
-// comments
-func (comments CommentList) LoadAttributes(ctx context.Context) (err error) {
+// loadAttributes loads all attributes
+func (comments CommentList) loadAttributes(ctx context.Context) (err error) {
 	if err = comments.LoadPosters(ctx); err != nil {
-		return err
+		return
 	}
 
 	if err = comments.loadLabels(ctx); err != nil {
-		return err
+		return
 	}
 
 	if err = comments.loadMilestones(ctx); err != nil {
-		return err
+		return
 	}
 
 	if err = comments.loadOldMilestones(ctx); err != nil {
-		return err
+		return
 	}
 
 	if err = comments.loadAssignees(ctx); err != nil {
-		return err
+		return
 	}
 
 	if err = comments.LoadAttachments(ctx); err != nil {
-		return err
+		return
 	}
 
 	if err = comments.loadReviews(ctx); err != nil {
-		return err
+		return
 	}
 
 	if err = comments.LoadIssues(ctx); err != nil {
-		return err
+		return
 	}
 
-	return comments.loadDependentIssues(ctx)
+	if err = comments.loadDependentIssues(ctx); err != nil {
+		return
+	}
+
+	return nil
+}
+
+// LoadAttributes loads attributes of the comments, except for attachments and
+// comments
+func (comments CommentList) LoadAttributes() error {
+	return comments.loadAttributes(db.DefaultContext)
 }

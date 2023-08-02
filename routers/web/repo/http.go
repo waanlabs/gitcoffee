@@ -56,13 +56,13 @@ func CorsHandler() func(next http.Handler) http.Handler {
 }
 
 // httpBase implementation git smart HTTP protocol
-func httpBase(ctx *context.Context) *serviceHandler {
+func httpBase(ctx *context.Context) (h *serviceHandler) {
 	username := ctx.Params(":username")
 	reponame := strings.TrimSuffix(ctx.Params(":reponame"), ".git")
 
 	if ctx.FormString("go-get") == "1" {
 		context.EarlyResponseForGoGetMeta(ctx)
-		return nil
+		return
 	}
 
 	var isPull, receivePack bool
@@ -101,7 +101,7 @@ func httpBase(ctx *context.Context) *serviceHandler {
 	owner := ctx.ContextUser
 	if !owner.IsOrganization() && !owner.IsActive {
 		ctx.PlainText(http.StatusForbidden, "Repository cannot be accessed. You cannot push or open issues/pull-requests.")
-		return nil
+		return
 	}
 
 	repoExist := true
@@ -110,19 +110,19 @@ func httpBase(ctx *context.Context) *serviceHandler {
 		if repo_model.IsErrRepoNotExist(err) {
 			if redirectRepoID, err := repo_model.LookupRedirect(owner.ID, reponame); err == nil {
 				context.RedirectToRepo(ctx.Base, redirectRepoID)
-				return nil
+				return
 			}
 			repoExist = false
 		} else {
 			ctx.ServerError("GetRepositoryByName", err)
-			return nil
+			return
 		}
 	}
 
 	// Don't allow pushing if the repo is archived
 	if repoExist && repo.IsArchived && !isPull {
 		ctx.PlainText(http.StatusForbidden, "This repo is archived. You can view files and clone it, but cannot push or open issues/pull-requests.")
-		return nil
+		return
 	}
 
 	// Only public pull don't need auth.
@@ -136,7 +136,7 @@ func httpBase(ctx *context.Context) *serviceHandler {
 	if isPublicPull {
 		if err := repo.LoadOwner(ctx); err != nil {
 			ctx.ServerError("LoadOwner", err)
-			return nil
+			return
 		}
 
 		askAuth = askAuth || (repo.Owner.Visibility != structs.VisibleTypePublic)
@@ -149,12 +149,12 @@ func httpBase(ctx *context.Context) *serviceHandler {
 			// TODO: support digit auth - which would be Authorization header with digit
 			ctx.Resp.Header().Set("WWW-Authenticate", "Basic realm=\".\"")
 			ctx.Error(http.StatusUnauthorized)
-			return nil
+			return
 		}
 
 		context.CheckRepoScopedToken(ctx, repo, auth_model.GetScopeLevelFromAccessMode(accessMode))
 		if ctx.Written() {
-			return nil
+			return
 		}
 
 		if ctx.IsBasicAuth && ctx.Data["IsApiToken"] != true && ctx.Data["IsActionsToken"] != true {
@@ -162,16 +162,16 @@ func httpBase(ctx *context.Context) *serviceHandler {
 			if err == nil {
 				// TODO: This response should be changed to "invalid credentials" for security reasons once the expectation behind it (creating an app token to authenticate) is properly documented
 				ctx.PlainText(http.StatusUnauthorized, "Users with two-factor authentication enabled cannot perform HTTP/HTTPS operations via plain username and password. Please create and use a personal access token on the user settings page")
-				return nil
+				return
 			} else if !auth_model.IsErrTwoFactorNotEnrolled(err) {
 				ctx.ServerError("IsErrTwoFactorNotEnrolled", err)
-				return nil
+				return
 			}
 		}
 
 		if !ctx.Doer.IsActive || ctx.Doer.ProhibitLogin {
 			ctx.PlainText(http.StatusForbidden, "Your account is disabled.")
-			return nil
+			return
 		}
 
 		environ = []string{
@@ -193,23 +193,23 @@ func httpBase(ctx *context.Context) *serviceHandler {
 				task, err := actions_model.GetTaskByID(ctx, taskID)
 				if err != nil {
 					ctx.ServerError("GetTaskByID", err)
-					return nil
+					return
 				}
 				if task.RepoID != repo.ID {
 					ctx.PlainText(http.StatusForbidden, "User permission denied")
-					return nil
+					return
 				}
 
 				if task.IsForkPullRequest {
 					if accessMode > perm.AccessModeRead {
 						ctx.PlainText(http.StatusForbidden, "User permission denied")
-						return nil
+						return
 					}
 					environ = append(environ, fmt.Sprintf("%s=%d", repo_module.EnvActionPerm, perm.AccessModeRead))
 				} else {
 					if accessMode > perm.AccessModeWrite {
 						ctx.PlainText(http.StatusForbidden, "User permission denied")
-						return nil
+						return
 					}
 					environ = append(environ, fmt.Sprintf("%s=%d", repo_module.EnvActionPerm, perm.AccessModeWrite))
 				}
@@ -217,18 +217,18 @@ func httpBase(ctx *context.Context) *serviceHandler {
 				p, err := access_model.GetUserRepoPermission(ctx, repo, ctx.Doer)
 				if err != nil {
 					ctx.ServerError("GetUserRepoPermission", err)
-					return nil
+					return
 				}
 
 				if !p.CanAccess(accessMode, unitType) {
 					ctx.PlainText(http.StatusNotFound, "Repository not found")
-					return nil
+					return
 				}
 			}
 
 			if !isPull && repo.IsMirror {
 				ctx.PlainText(http.StatusForbidden, "mirror repository is read-only")
-				return nil
+				return
 			}
 		}
 
@@ -246,34 +246,34 @@ func httpBase(ctx *context.Context) *serviceHandler {
 	if !repoExist {
 		if !receivePack {
 			ctx.PlainText(http.StatusNotFound, "Repository not found")
-			return nil
+			return
 		}
 
 		if isWiki { // you cannot send wiki operation before create the repository
 			ctx.PlainText(http.StatusNotFound, "Repository not found")
-			return nil
+			return
 		}
 
 		if owner.IsOrganization() && !setting.Repository.EnablePushCreateOrg {
 			ctx.PlainText(http.StatusForbidden, "Push to create is not enabled for organizations.")
-			return nil
+			return
 		}
 		if !owner.IsOrganization() && !setting.Repository.EnablePushCreateUser {
 			ctx.PlainText(http.StatusForbidden, "Push to create is not enabled for users.")
-			return nil
+			return
 		}
 
 		// Return dummy payload if GET receive-pack
 		if ctx.Req.Method == http.MethodGet {
 			dummyInfoRefs(ctx)
-			return nil
+			return
 		}
 
 		repo, err = repo_service.PushCreateRepo(ctx, ctx.Doer, owner, reponame)
 		if err != nil {
 			log.Error("pushCreateRepo: %v", err)
 			ctx.Status(http.StatusNotFound)
-			return nil
+			return
 		}
 	}
 
@@ -282,11 +282,11 @@ func httpBase(ctx *context.Context) *serviceHandler {
 		if _, err := repo.GetUnit(ctx, unit.TypeWiki); err != nil {
 			if repo_model.IsErrUnitTypeNotExist(err) {
 				ctx.PlainText(http.StatusForbidden, "repository wiki is disabled")
-				return nil
+				return
 			}
 			log.Error("Failed to get the wiki unit in %-v Error: %v", repo, err)
 			ctx.ServerError("GetUnit(UnitTypeWiki) for "+repo.FullName(), err)
-			return nil
+			return
 		}
 	}
 

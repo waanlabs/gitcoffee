@@ -1,6 +1,20 @@
-import {defineConfig} from 'vitest/config';
-import vuePlugin from '@vitejs/plugin-vue';
-import {stringPlugin} from 'vite-string-plugin';
+import {defineConfig} from 'vitest/dist/config.js';
+import {readFile} from 'node:fs/promises';
+import {dataToEsm} from '@rollup/pluginutils';
+import {extname} from 'node:path';
+import vue from '@vitejs/plugin-vue';
+
+function stringPlugin() {
+  return {
+    name: 'string-plugin',
+    enforce: 'pre',
+    async load(id) {
+      const path = id.split('?')[0];
+      if (extname(path) !== '.svg') return null;
+      return dataToEsm(await readFile(path, 'utf8'));
+    }
+  };
+}
 
 export default defineConfig({
   test: {
@@ -12,9 +26,10 @@ export default defineConfig({
     allowOnly: true,
     passWithNoTests: true,
     watch: false,
+    outputDiffLines: Infinity,
   },
   plugins: [
     stringPlugin(),
-    vuePlugin(),
+    vue(),
   ],
 });

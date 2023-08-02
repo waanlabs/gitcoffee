@@ -32,16 +32,6 @@ func List(ctx *context.Context) {
 	ctx.HTML(http.StatusOK, "devtest/list")
 }
 
-func FetchActionTest(ctx *context.Context) {
-	_ = ctx.Req.ParseForm()
-	ctx.Flash.Info("fetch-action: " + ctx.Req.Method + " " + ctx.Req.RequestURI + "<br>" +
-		"Form: " + ctx.Req.Form.Encode() + "<br>" +
-		"PostForm: " + ctx.Req.PostForm.Encode(),
-	)
-	time.Sleep(2 * time.Second)
-	ctx.JSONRedirect("")
-}
-
 func Tmpl(ctx *context.Context) {
 	now := time.Now()
 	ctx.Data["TimeNow"] = now

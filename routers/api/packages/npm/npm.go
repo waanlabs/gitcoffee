@@ -5,7 +5,6 @@ package npm
 
 import (
 	"bytes"
-	std_ctx "context"
 	"errors"
 	"fmt"
 	"io"
@@ -84,7 +83,7 @@ func DownloadPackageFile(ctx *context.Context) {
 	packageVersion := ctx.Params("version")
 	filename := ctx.Params("filename")
 
-	s, u, pf, err := packages_service.GetFileStreamByPackageNameAndVersion(
+	s, pf, err := packages_service.GetFileStreamByPackageNameAndVersion(
 		ctx,
 		&packages_service.PackageInfo{
 			Owner:       ctx.Package.Owner,
@@ -104,8 +103,12 @@ func DownloadPackageFile(ctx *context.Context) {
 		apiError(ctx, http.StatusInternalServerError, err)
 		return
 	}
+	defer s.Close()
 
-	helper.ServePackageFile(ctx, s, u, pf)
+	ctx.ServeContent(s, &context.ServeHeaderOptions{
+		Filename:     pf.Name,
+		LastModified: pf.CreatedUnix.AsLocalTime(),
+	})
 }
 
 // DownloadPackageFileByName finds the version and serves the contents of a package
@@ -131,7 +134,7 @@ func DownloadPackageFileByName(ctx *context.Context) {
 		return
 	}
 
-	s, u, pf, err := packages_service.GetFileStreamByPackageVersion(
+	s, pf, err := packages_service.GetFileStreamByPackageVersion(
 		ctx,
 		pvs[0],
 		&packages_service.PackageFileInfo{
@@ -146,8 +149,12 @@ func DownloadPackageFileByName(ctx *context.Context) {
 		apiError(ctx, http.StatusInternalServerError, err)
 		return
 	}
+	defer s.Close()
 
-	helper.ServePackageFile(ctx, s, u, pf)
+	ctx.ServeContent(s, &context.ServeHeaderOptions{
+		Filename:     pf.Name,
+		LastModified: pf.CreatedUnix.AsLocalTime(),
+	})
 }
 
 // UploadPackage creates a new package
@@ -223,7 +230,7 @@ func UploadPackage(ctx *context.Context) {
 	}
 
 	for _, tag := range npmPackage.DistTags {
-		if err := setPackageTag(ctx, tag, pv, false); err != nil {
+		if err := setPackageTag(tag, pv, false); err != nil {
 			if err == errInvalidTagName {
 				apiError(ctx, http.StatusBadRequest, err)
 				return
@@ -346,7 +353,7 @@ func AddPackageTag(ctx *context.Context) {
 		return
 	}
 
-	if err := setPackageTag(ctx, ctx.Params("tag"), pv, false); err != nil {
+	if err := setPackageTag(ctx.Params("tag"), pv, false); err != nil {
 		if err == errInvalidTagName {
 			apiError(ctx, http.StatusBadRequest, err)
 			return
@@ -367,7 +374,7 @@ func DeletePackageTag(ctx *context.Context) {
 	}
 
 	if len(pvs) != 0 {
-		if err := setPackageTag(ctx, ctx.Params("tag"), pvs[0], true); err != nil {
+		if err := setPackageTag(ctx.Params("tag"), pvs[0], true); err != nil {
 			if err == errInvalidTagName {
 				apiError(ctx, http.StatusBadRequest, err)
 				return
@@ -378,7 +385,7 @@ func DeletePackageTag(ctx *context.Context) {
 	}
 }
 
-func setPackageTag(ctx std_ctx.Context, tag string, pv *packages_model.PackageVersion, deleteOnly bool) error {
+func setPackageTag(tag string, pv *packages_model.PackageVersion, deleteOnly bool) error {
 	if tag == "" {
 		return errInvalidTagName
 	}
@@ -387,42 +394,47 @@ func setPackageTag(ctx std_ctx.Context, tag string, pv *packages_model.PackageVe
 		return errInvalidTagName
 	}
 
-	return db.WithTx(ctx, func(ctx std_ctx.Context) error {
-		pvs, _, err := packages_model.SearchVersions(ctx, &packages_model.PackageSearchOptions{
-			PackageID: pv.PackageID,
-			Properties: map[string]string{
-				npm_module.TagProperty: tag,
-			},
-			IsInternal: util.OptionalBoolFalse,
-		})
+	ctx, committer, err := db.TxContext(db.DefaultContext)
+	if err != nil {
+		return err
+	}
+	defer committer.Close()
+
+	pvs, _, err := packages_model.SearchVersions(ctx, &packages_model.PackageSearchOptions{
+		PackageID: pv.PackageID,
+		Properties: map[string]string{
+			npm_module.TagProperty: tag,
+		},
+		IsInternal: util.OptionalBoolFalse,
+	})
+	if err != nil {
+		return err
+	}
+
+	if len(pvs) == 1 {
+		pvps, err := packages_model.GetPropertiesByName(ctx, packages_model.PropertyTypeVersion, pvs[0].ID, npm_module.TagProperty)
 		if err != nil {
 			return err
 		}
 
-		if len(pvs) == 1 {
-			pvps, err := packages_model.GetPropertiesByName(ctx, packages_model.PropertyTypeVersion, pvs[0].ID, npm_module.TagProperty)
-			if err != nil {
-				return err
-			}
-
-			for _, pvp := range pvps {
-				if pvp.Value == tag {
-					if err := packages_model.DeletePropertyByID(ctx, pvp.ID); err != nil {
-						return err
-					}
-					break
+		for _, pvp := range pvps {
+			if pvp.Value == tag {
+				if err := packages_model.DeletePropertyByID(ctx, pvp.ID); err != nil {
+					return err
 				}
+				break
 			}
 		}
+	}
 
-		if !deleteOnly {
-			_, err = packages_model.InsertProperty(ctx, packages_model.PropertyTypeVersion, pv.ID, npm_module.TagProperty, tag)
-			if err != nil {
-				return err
-			}
+	if !deleteOnly {
+		_, err = packages_model.InsertProperty(ctx, packages_model.PropertyTypeVersion, pv.ID, npm_module.TagProperty, tag)
+		if err != nil {
+			return err
 		}
-		return nil
-	})
+	}
+
+	return committer.Commit()
 }
 
 func PackageSearch(ctx *context.Context) {

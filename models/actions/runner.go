@@ -43,8 +43,10 @@ type ActionRunner struct {
 	LastOnline timeutil.TimeStamp `xorm:"index"`
 	LastActive timeutil.TimeStamp `xorm:"index"`
 
-	// Store labels defined in state file (default: .runner file) of `act_runner`
-	AgentLabels []string `xorm:"TEXT"`
+	// Store OS and Artch.
+	AgentLabels []string
+	// Store custom labes use defined.
+	CustomLabels []string
 
 	Created timeutil.TimeStamp `xorm:"created"`
 	Updated timeutil.TimeStamp `xorm:"updated"`
@@ -100,6 +102,11 @@ func (r *ActionRunner) IsOnline() bool {
 		return true
 	}
 	return false
+}
+
+// AllLabels returns agent and custom labels
+func (r *ActionRunner) AllLabels() []string {
+	return append(r.AgentLabels, r.CustomLabels...)
 }
 
 // Editable checks if the runner is editable by the user

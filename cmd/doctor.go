@@ -18,67 +18,57 @@ import (
 	"code.gitea.io/gitea/modules/log"
 	"code.gitea.io/gitea/modules/setting"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli"
 	"xorm.io/xorm"
 )
 
-var cmdDoctorCheck = &cli.Command{
-	Name:        "check",
-	Usage:       "Diagnose and optionally fix problems",
-	Description: "A command to diagnose problems with the current Gitea instance according to the given configuration. Some problems can optionally be fixed by modifying the database or data storage.",
-	Action:      runDoctorCheck,
-	Flags: []cli.Flag{
-		&cli.BoolFlag{
-			Name:  "list",
-			Usage: "List the available checks",
-		},
-		&cli.BoolFlag{
-			Name:  "default",
-			Usage: "Run the default checks (if neither --run or --all is set, this is the default behaviour)",
-		},
-		&cli.StringSliceFlag{
-			Name:  "run",
-			Usage: "Run the provided checks - (if --default is set, the default checks will also run)",
-		},
-		&cli.BoolFlag{
-			Name:  "all",
-			Usage: "Run all the available checks",
-		},
-		&cli.BoolFlag{
-			Name:  "fix",
-			Usage: "Automatically fix what we can",
-		},
-		&cli.StringFlag{
-			Name:  "log-file",
-			Usage: `Name of the log file (no verbose log output by default). Set to "-" to output to stdout`,
-		},
-		&cli.BoolFlag{
-			Name:    "color",
-			Aliases: []string{"H"},
-			Usage:   "Use color for outputted information",
-		},
-	},
-}
-
 // CmdDoctor represents the available doctor sub-command.
-var CmdDoctor = &cli.Command{
+var CmdDoctor = cli.Command{
 	Name:        "doctor",
 	Usage:       "Diagnose and optionally fix problems",
 	Description: "A command to diagnose problems with the current Gitea instance according to the given configuration. Some problems can optionally be fixed by modifying the database or data storage.",
-
-	Subcommands: []*cli.Command{
-		cmdDoctorCheck,
+	Action:      runDoctor,
+	Flags: []cli.Flag{
+		cli.BoolFlag{
+			Name:  "list",
+			Usage: "List the available checks",
+		},
+		cli.BoolFlag{
+			Name:  "default",
+			Usage: "Run the default checks (if neither --run or --all is set, this is the default behaviour)",
+		},
+		cli.StringSliceFlag{
+			Name:  "run",
+			Usage: "Run the provided checks - (if --default is set, the default checks will also run)",
+		},
+		cli.BoolFlag{
+			Name:  "all",
+			Usage: "Run all the available checks",
+		},
+		cli.BoolFlag{
+			Name:  "fix",
+			Usage: "Automatically fix what we can",
+		},
+		cli.StringFlag{
+			Name:  "log-file",
+			Usage: `Name of the log file (default: "doctor.log"). Set to "-" to output to stdout, set to "" to disable`,
+		},
+		cli.BoolFlag{
+			Name:  "color, H",
+			Usage: "Use color for outputted information",
+		},
+	},
+	Subcommands: []cli.Command{
 		cmdRecreateTable,
-		cmdDoctorConvert,
 	},
 }
 
-var cmdRecreateTable = &cli.Command{
+var cmdRecreateTable = cli.Command{
 	Name:      "recreate-table",
 	Usage:     "Recreate tables from XORM definitions and copy the data.",
 	ArgsUsage: "[TABLE]... : (TABLEs to recreate - leave blank for all)",
 	Flags: []cli.Flag{
-		&cli.BoolFlag{
+		cli.BoolFlag{
 			Name:  "debug",
 			Usage: "Print SQL commands sent",
 		},
@@ -142,9 +132,16 @@ func setupDoctorDefaultLogger(ctx *cli.Context, colorize bool) {
 	setupConsoleLogger(log.FATAL, log.CanColorStderr, os.Stderr)
 
 	logFile := ctx.String("log-file")
-	if logFile == "" {
-		return // if no doctor log-file is set, do not show any log from default logger
-	} else if logFile == "-" {
+	if !ctx.IsSet("log-file") {
+		logFile = "doctor.log"
+	}
+
+	if len(logFile) == 0 {
+		// if no doctor log-file is set, do not show any log from default logger
+		return
+	}
+
+	if logFile == "-" {
 		setupConsoleLogger(log.TRACE, colorize, os.Stdout)
 	} else {
 		logFile, _ = filepath.Abs(logFile)
@@ -158,7 +155,7 @@ func setupDoctorDefaultLogger(ctx *cli.Context, colorize bool) {
 	}
 }
 
-func runDoctorCheck(ctx *cli.Context) error {
+func runDoctor(ctx *cli.Context) error {
 	stdCtx, cancel := installSignals()
 	defer cancel()
 

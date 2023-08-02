@@ -366,7 +366,7 @@ func DismissApprovalReviews(ctx context.Context, doer *user_model.User, pull *is
 func DismissReview(ctx context.Context, reviewID, repoID int64, message string, doer *user_model.User, isDismiss, dismissPriors bool) (comment *issues_model.Comment, err error) {
 	review, err := issues_model.GetReviewByID(ctx, reviewID)
 	if err != nil {
-		return nil, err
+		return
 	}
 
 	if review.Type != issues_model.ReviewTypeApprove && review.Type != issues_model.ReviewTypeReject {
@@ -374,7 +374,7 @@ func DismissReview(ctx context.Context, reviewID, repoID int64, message string, 
 	}
 
 	// load data for notify
-	if err := review.LoadAttributes(ctx); err != nil {
+	if err = review.LoadAttributes(ctx); err != nil {
 		return nil, err
 	}
 
@@ -420,7 +420,7 @@ func DismissReview(ctx context.Context, reviewID, repoID int64, message string, 
 		Repo:     review.Issue.Repo,
 	})
 	if err != nil {
-		return nil, err
+		return
 	}
 
 	comment.Review = review
@@ -429,5 +429,5 @@ func DismissReview(ctx context.Context, reviewID, repoID int64, message string, 
 
 	notification.NotifyPullReviewDismiss(ctx, doer, review, comment)
 
-	return comment, nil
+	return comment, err
 }

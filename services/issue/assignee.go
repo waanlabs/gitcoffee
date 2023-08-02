@@ -46,12 +46,13 @@ func DeleteNotPassedAssignee(ctx context.Context, issue *issues_model.Issue, doe
 func ToggleAssignee(ctx context.Context, issue *issues_model.Issue, doer *user_model.User, assigneeID int64) (removed bool, comment *issues_model.Comment, err error) {
 	removed, comment, err = issues_model.ToggleIssueAssignee(ctx, issue, doer, assigneeID)
 	if err != nil {
-		return false, nil, err
+		return
 	}
 
-	assignee, err := user_model.GetUserByID(ctx, assigneeID)
-	if err != nil {
-		return false, nil, err
+	assignee, err1 := user_model.GetUserByID(ctx, assigneeID)
+	if err1 != nil {
+		err = err1
+		return
 	}
 
 	notification.NotifyIssueChangeAssignee(ctx, doer, issue, assignee, removed, comment)
@@ -235,23 +236,23 @@ func TeamReviewRequest(ctx context.Context, issue *issues_model.Issue, doer *use
 	}
 
 	if err != nil {
-		return nil, err
+		return
 	}
 
 	if comment == nil || !isAdd {
-		return nil, nil
+		return
 	}
 
 	// notify all user in this team
-	if err := comment.LoadIssue(ctx); err != nil {
-		return nil, err
+	if err = comment.LoadIssue(ctx); err != nil {
+		return
 	}
 
 	members, err := organization.GetTeamMembers(ctx, &organization.SearchMembersOptions{
 		TeamID: reviewer.ID,
 	})
 	if err != nil {
-		return nil, err
+		return
 	}
 
 	for _, member := range members {

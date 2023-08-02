@@ -30,7 +30,7 @@ func TestPullCreate_CommitStatus(t *testing.T) {
 				"title": "pull request from status1",
 			},
 		)
-		session.MakeRequest(t, req, http.StatusOK)
+		session.MakeRequest(t, req, http.StatusSeeOther)
 
 		req = NewRequest(t, "GET", "/user1/repo1/pulls")
 		resp := session.MakeRequest(t, req, http.StatusOK)
@@ -52,6 +52,7 @@ func TestPullCreate_CommitStatus(t *testing.T) {
 			api.CommitStatusPending,
 			api.CommitStatusError,
 			api.CommitStatusFailure,
+			api.CommitStatusWarning,
 			api.CommitStatusSuccess,
 		}
 
@@ -60,6 +61,7 @@ func TestPullCreate_CommitStatus(t *testing.T) {
 			api.CommitStatusSuccess: "octicon-check",
 			api.CommitStatusError:   "gitea-exclamation",
 			api.CommitStatusFailure: "octicon-x",
+			api.CommitStatusWarning: "gitea-exclamation",
 		}
 
 		testCtx := NewAPITestContext(t, "user1", "repo1", auth_model.AccessTokenScopeWriteRepository)
@@ -125,7 +127,7 @@ func TestPullCreate_EmptyChangesWithDifferentCommits(t *testing.T) {
 				"title": "pull request from status1",
 			},
 		)
-		session.MakeRequest(t, req, http.StatusOK)
+		session.MakeRequest(t, req, http.StatusSeeOther)
 
 		req = NewRequest(t, "GET", "/user1/repo1/pulls/1")
 		resp := session.MakeRequest(t, req, http.StatusOK)
@@ -148,7 +150,7 @@ func TestPullCreate_EmptyChangesWithSameCommits(t *testing.T) {
 				"title": "pull request from status1",
 			},
 		)
-		session.MakeRequest(t, req, http.StatusOK)
+		session.MakeRequest(t, req, http.StatusSeeOther)
 		req = NewRequest(t, "GET", "/user1/repo1/pulls/1")
 		resp := session.MakeRequest(t, req, http.StatusOK)
 		doc := NewHTMLParser(t, resp.Body)

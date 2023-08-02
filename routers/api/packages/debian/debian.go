@@ -59,7 +59,7 @@ func GetRepositoryFile(ctx *context.Context) {
 		key += "|" + component + "|" + architecture
 	}
 
-	s, u, pf, err := packages_service.GetFileStreamByPackageVersion(
+	s, pf, err := packages_service.GetFileStreamByPackageVersion(
 		ctx,
 		pv,
 		&packages_service.PackageFileInfo{
@@ -75,8 +75,12 @@ func GetRepositoryFile(ctx *context.Context) {
 		}
 		return
 	}
+	defer s.Close()
 
-	helper.ServePackageFile(ctx, s, u, pf)
+	ctx.ServeContent(s, &context.ServeHeaderOptions{
+		Filename:     pf.Name,
+		LastModified: pf.CreatedUnix.AsLocalTime(),
+	})
 }
 
 // https://wiki.debian.org/DebianRepository/Format#indices_acquisition_via_hashsums_.28by-hash.29
@@ -106,7 +110,7 @@ func GetRepositoryFileByHash(ctx *context.Context) {
 		return
 	}
 
-	s, u, pf, err := packages_service.GetPackageFileStream(ctx, pfs[0])
+	s, pf, err := packages_service.GetPackageFileStream(ctx, pfs[0])
 	if err != nil {
 		if errors.Is(err, util.ErrNotExist) {
 			apiError(ctx, http.StatusNotFound, err)
@@ -115,8 +119,12 @@ func GetRepositoryFileByHash(ctx *context.Context) {
 		}
 		return
 	}
+	defer s.Close()
 
-	helper.ServePackageFile(ctx, s, u, pf)
+	ctx.ServeContent(s, &context.ServeHeaderOptions{
+		Filename:     pf.Name,
+		LastModified: pf.CreatedUnix.AsLocalTime(),
+	})
 }
 
 func UploadPackageFile(ctx *context.Context) {
@@ -209,7 +217,7 @@ func DownloadPackageFile(ctx *context.Context) {
 	name := ctx.Params("name")
 	version := ctx.Params("version")
 
-	s, u, pf, err := packages_service.GetFileStreamByPackageNameAndVersion(
+	s, pf, err := packages_service.GetFileStreamByPackageNameAndVersion(
 		ctx,
 		&packages_service.PackageInfo{
 			Owner:       ctx.Package.Owner,
@@ -230,8 +238,9 @@ func DownloadPackageFile(ctx *context.Context) {
 		}
 		return
 	}
+	defer s.Close()
 
-	helper.ServePackageFile(ctx, s, u, pf, &context.ServeHeaderOptions{
+	ctx.ServeContent(s, &context.ServeHeaderOptions{
 		ContentType:  "application/vnd.debian.binary-package",
 		Filename:     pf.Name,
 		LastModified: pf.CreatedUnix.AsLocalTime(),

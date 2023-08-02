@@ -18,7 +18,7 @@ import (
 	"code.gitea.io/gitea/modules/util"
 
 	runnerv1 "code.gitea.io/actions-proto-go/runner/v1"
-	lru "github.com/hashicorp/golang-lru/v2"
+	lru "github.com/hashicorp/golang-lru"
 	"github.com/nektos/act/pkg/jobparser"
 	"google.golang.org/protobuf/types/known/timestamppb"
 	"xorm.io/builder"
@@ -57,13 +57,13 @@ type ActionTask struct {
 	Updated timeutil.TimeStamp `xorm:"updated index"`
 }
 
-var successfulTokenTaskCache *lru.Cache[string, any]
+var successfulTokenTaskCache *lru.Cache
 
 func init() {
 	db.RegisterModel(new(ActionTask), func() error {
 		if setting.SuccessfulTokensCacheSize > 0 {
 			var err error
-			successfulTokenTaskCache, err = lru.New[string, any](setting.SuccessfulTokensCacheSize)
+			successfulTokenTaskCache, err = lru.New(setting.SuccessfulTokensCacheSize)
 			if err != nil {
 				return fmt.Errorf("unable to allocate Task cache: %v", err)
 			}
@@ -215,11 +215,12 @@ func GetRunningTaskByToken(ctx context.Context, token string) (*ActionTask, erro
 }
 
 func CreateTaskForRunner(ctx context.Context, runner *ActionRunner) (*ActionTask, bool, error) {
-	ctx, commiter, err := db.TxContext(ctx)
+	dbCtx, commiter, err := db.TxContext(ctx)
 	if err != nil {
 		return nil, false, err
 	}
 	defer commiter.Close()
+	ctx = dbCtx.WithContext(ctx)
 
 	e := db.GetEngine(ctx)
 
@@ -240,9 +241,11 @@ func CreateTaskForRunner(ctx context.Context, runner *ActionRunner) (*ActionTask
 
 	// TODO: a more efficient way to filter labels
 	var job *ActionRunJob
-	log.Trace("runner labels: %v", runner.AgentLabels)
+	labels := runner.AgentLabels
+	labels = append(labels, runner.CustomLabels...)
+	log.Trace("runner labels: %v", labels)
 	for _, v := range jobs {
-		if isSubset(runner.AgentLabels, v.RunsOn) {
+		if isSubset(labels, v.RunsOn) {
 			job = v
 			break
 		}

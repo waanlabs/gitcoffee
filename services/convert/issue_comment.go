@@ -11,7 +11,6 @@ import (
 	user_model "code.gitea.io/gitea/models/user"
 	"code.gitea.io/gitea/modules/log"
 	api "code.gitea.io/gitea/modules/structs"
-	"code.gitea.io/gitea/modules/util"
 )
 
 // ToAPIComment converts a issues_model.Comment to the api.Comment format for API usage
@@ -67,17 +66,6 @@ func ToTimelineComment(ctx context.Context, repo *repo_model.Repository, c *issu
 		return nil
 	}
 
-	if c.Content != "" {
-		if (c.Type == issues_model.CommentTypeAddTimeManual ||
-			c.Type == issues_model.CommentTypeStopTracking ||
-			c.Type == issues_model.CommentTypeDeleteTimeManual) &&
-			c.Content[0] == '|' {
-			// TimeTracking Comments from v1.21 on store the seconds instead of an formated string
-			// so we check for the "|" delimeter and convert new to legacy format on demand
-			c.Content = util.SecToTime(c.Content[1:])
-		}
-	}
-
 	comment := &api.TimelineComment{
 		ID:       c.ID,
 		Type:     c.Type.String(),
@@ -114,7 +102,7 @@ func ToTimelineComment(ctx context.Context, repo *repo_model.Repository, c *issu
 	}
 
 	if c.Time != nil {
-		err = c.Time.LoadAttributes(ctx)
+		err = c.Time.LoadAttributes()
 		if err != nil {
 			log.Error("Time.LoadAttributes: %v", err)
 			return nil

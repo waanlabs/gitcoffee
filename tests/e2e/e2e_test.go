@@ -38,7 +38,7 @@ func TestMain(m *testing.M) {
 	defer cancel()
 
 	tests.InitTest(false)
-	c = routers.NormalRoutes()
+	c = routers.NormalRoutes(context.TODO())
 
 	os.Unsetenv("GIT_AUTHOR_NAME")
 	os.Unsetenv("GIT_AUTHOR_EMAIL")

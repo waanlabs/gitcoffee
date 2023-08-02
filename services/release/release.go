@@ -187,7 +187,7 @@ func CreateNewTag(ctx context.Context, doer *user_model.User, repo *repo_model.R
 // editAttachments accept a map of attachment uuid to new attachment name which will be updated with attachments.
 func UpdateRelease(doer *user_model.User, gitRepo *git.Repository, rel *repo_model.Release,
 	addAttachmentUUIDs, delAttachmentUUIDs []string, editAttachments map[string]string,
-) error {
+) (err error) {
 	if rel.ID == 0 {
 		return errors.New("UpdateRelease only accepts an exist release")
 	}
@@ -264,8 +264,8 @@ func UpdateRelease(doer *user_model.User, gitRepo *git.Repository, rel *repo_mod
 		}
 	}
 
-	if err := committer.Commit(); err != nil {
-		return err
+	if err = committer.Commit(); err != nil {
+		return
 	}
 
 	for _, uuid := range delAttachmentUUIDs {
@@ -280,14 +280,14 @@ func UpdateRelease(doer *user_model.User, gitRepo *git.Repository, rel *repo_mod
 
 	if !isCreated {
 		notification.NotifyUpdateRelease(gitRepo.Ctx, doer, rel)
-		return nil
+		return
 	}
 
 	if !rel.IsDraft {
 		notification.NotifyNewRelease(gitRepo.Ctx, rel)
 	}
 
-	return nil
+	return err
 }
 
 // DeleteReleaseByID deletes a release and corresponding Git tag by given ID.

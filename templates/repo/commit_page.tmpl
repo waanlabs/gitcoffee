@@ -19,7 +19,7 @@
 		{{end}}
 		<div class="ui top attached header clearing segment gt-relative commit-header {{$class}}">
 			<div class="gt-df gt-mb-4 gt-fw">
-				<h3 class="gt-mb-0 gt-f1"><span class="commit-summary" title="{{.Commit.Summary}}">{{RenderCommitMessage $.Context .Commit.Message $.RepoLink $.Repository.ComposeMetas}}</span>{{template "repo/commit_statuses" dict "Status" .CommitStatus "Statuses" .CommitStatuses "root" $}}</h3>
+				<h3 class="gt-mb-0 gt-f1"><span class="commit-summary" title="{{.Commit.Summary}}">{{RenderCommitMessage $.Context .Commit.Message $.RepoLink $.Repository.ComposeMetas}}</span>{{template "repo/commit_statuses" dict "Status" .CommitStatus "Statuses" .CommitStatuses  "root" $}}</h3>
 				{{if not $.PageIsWiki}}
 					<div>
 						<a class="ui primary tiny button" href="{{.SourcePath}}">
@@ -71,7 +71,7 @@
 												"branchForm" "branch-dropdown-form"
 												"branchURLPrefix" (printf "%s/_cherrypick/%s/" $.RepoLink .CommitID) "branchURLSuffix" ""
 												"setAction" true "submitForm" true}}
-											<form method="get" action="{{$.RepoLink}}/_cherrypick/{{.CommitID}}/{{if $.BranchName}}{{PathEscapeSegments $.BranchName}}{{else}}{{PathEscapeSegments $.Repository.DefaultBranch}}{{end}}" id="branch-dropdown-form">
+											<form method="GET" action="{{$.RepoLink}}/_cherrypick/{{.CommitID}}/{{if $.BranchName}}{{PathEscapeSegments $.BranchName}}{{else}}{{PathEscapeSegments $.Repository.DefaultBranch}}{{end}}" id="branch-dropdown-form">
 												<input type="hidden" name="ref" value="{{if $.BranchName}}{{$.BranchName}}{{else}}{{$.Repository.DefaultBranch}}{{end}}">
 												<input type="hidden" name="refType" value="branch">
 												<input type="hidden" id="cherry-pick-type" name="cherry-pick-type"><br>
@@ -137,7 +137,12 @@
 			{{if IsMultilineCommitMessage .Commit.Message}}
 				<pre class="commit-body gt-mt-0">{{RenderCommitBody $.Context .Commit.Message $.RepoLink $.Repository.ComposeMetas}}</pre>
 			{{end}}
-			{{template "repo/commit_load_branches_and_tags" .}}
+			{{if .BranchName}}
+				<span class="text grey gt-mr-3">{{svg "octicon-git-branch" 16 "gt-mr-2"}}{{.BranchName}}</span>
+			{{end}}
+			{{if .TagName}}
+				<span class="text grey gt-mr-3">{{svg "octicon-tag" 16 "gt-mr-2"}}{{.TagName}}</span>
+			{{end}}
 		</div>
 		<div class="ui attached segment gt-df gt-ac gt-sb gt-py-2 commit-header-row gt-fw {{$class}}">
 				<div class="gt-df gt-ac author">

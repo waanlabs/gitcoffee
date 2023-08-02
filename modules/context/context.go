@@ -21,9 +21,7 @@ import (
 	"code.gitea.io/gitea/modules/setting"
 	"code.gitea.io/gitea/modules/templates"
 	"code.gitea.io/gitea/modules/translation"
-	"code.gitea.io/gitea/modules/web"
 	"code.gitea.io/gitea/modules/web/middleware"
-	web_types "code.gitea.io/gitea/modules/web/types"
 
 	"gitea.com/go-chi/cache"
 	"gitea.com/go-chi/session"
@@ -58,12 +56,6 @@ type Context struct {
 	Repo    *Repository
 	Org     *Organization
 	Package *Package
-}
-
-func init() {
-	web.RegisterResponseStatusProvider[*Context](func(req *http.Request) web_types.ResponseStatusProvider {
-		return req.Context().Value(WebContextKey).(*Context)
-	})
 }
 
 // TrHTMLEscapeArgs runs ".Locale.Tr()" but pre-escapes all arguments with html.EscapeString.
@@ -225,16 +217,4 @@ func (ctx *Context) GetErrMsg() string {
 		msg = "invalid form data"
 	}
 	return msg
-}
-
-func (ctx *Context) JSONRedirect(redirect string) {
-	ctx.JSON(http.StatusOK, map[string]any{"redirect": redirect})
-}
-
-func (ctx *Context) JSONOK() {
-	ctx.JSON(http.StatusOK, map[string]any{"ok": true}) // this is only a dummy response, frontend seldom uses it
-}
-
-func (ctx *Context) JSONError(msg string) {
-	ctx.JSON(http.StatusBadRequest, map[string]any{"errorMessage": msg})
 }

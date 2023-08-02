@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"strings"
+	"time"
 
 	git_model "code.gitea.io/gitea/models/git"
 	repo_model "code.gitea.io/gitea/models/repo"
@@ -670,7 +671,7 @@ func WikiRaw(ctx *context.Context) {
 	}
 
 	if entry != nil {
-		if err = common.ServeBlob(ctx.Base, ctx.Repo.TreePath, entry.Blob(), nil); err != nil {
+		if err = common.ServeBlob(ctx.Base, ctx.Repo.TreePath, entry.Blob(), time.Time{}); err != nil {
 			ctx.ServerError("ServeBlob", err)
 		}
 		return
@@ -790,5 +791,7 @@ func DeleteWikiPagePost(ctx *context.Context) {
 
 	notification.NotifyDeleteWikiPage(ctx, ctx.Doer, ctx.Repo.Repository, string(wikiName))
 
-	ctx.JSONRedirect(ctx.Repo.RepoLink + "/wiki/")
+	ctx.JSON(http.StatusOK, map[string]any{
+		"redirect": ctx.Repo.RepoLink + "/wiki/",
+	})
 }

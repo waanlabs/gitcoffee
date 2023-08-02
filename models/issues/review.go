@@ -136,10 +136,10 @@ func init() {
 // LoadCodeComments loads CodeComments
 func (r *Review) LoadCodeComments(ctx context.Context) (err error) {
 	if r.CodeComments != nil {
-		return err
+		return
 	}
 	if err = r.loadIssue(ctx); err != nil {
-		return err
+		return
 	}
 	r.CodeComments, err = fetchCodeCommentsByReview(ctx, r.Issue, nil, r, false)
 	return err
@@ -147,7 +147,7 @@ func (r *Review) LoadCodeComments(ctx context.Context) (err error) {
 
 func (r *Review) loadIssue(ctx context.Context) (err error) {
 	if r.Issue != nil {
-		return err
+		return
 	}
 	r.Issue, err = GetIssueByID(ctx, r.IssueID)
 	return err
@@ -156,7 +156,7 @@ func (r *Review) loadIssue(ctx context.Context) (err error) {
 // LoadReviewer loads reviewer
 func (r *Review) LoadReviewer(ctx context.Context) (err error) {
 	if r.ReviewerID == 0 || r.Reviewer != nil {
-		return err
+		return
 	}
 	r.Reviewer, err = user_model.GetPossibleUserByID(ctx, r.ReviewerID)
 	return err
@@ -165,7 +165,7 @@ func (r *Review) LoadReviewer(ctx context.Context) (err error) {
 // LoadReviewerTeam loads reviewer team
 func (r *Review) LoadReviewerTeam(ctx context.Context) (err error) {
 	if r.ReviewerTeamID == 0 || r.ReviewerTeam != nil {
-		return nil
+		return
 	}
 
 	r.ReviewerTeam, err = organization.GetTeamByID(ctx, r.ReviewerTeamID)
@@ -175,16 +175,16 @@ func (r *Review) LoadReviewerTeam(ctx context.Context) (err error) {
 // LoadAttributes loads all attributes except CodeComments
 func (r *Review) LoadAttributes(ctx context.Context) (err error) {
 	if err = r.loadIssue(ctx); err != nil {
-		return err
+		return
 	}
 	if err = r.LoadCodeComments(ctx); err != nil {
-		return err
+		return
 	}
 	if err = r.LoadReviewer(ctx); err != nil {
-		return err
+		return
 	}
 	if err = r.LoadReviewerTeam(ctx); err != nil {
-		return err
+		return
 	}
 	return err
 }

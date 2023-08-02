@@ -4,7 +4,6 @@
 package conan
 
 import (
-	std_ctx "context"
 	"fmt"
 	"io"
 	"net/http"
@@ -454,7 +453,7 @@ func downloadFile(ctx *context.Context, fileFilter container.Set[string], fileKe
 		return
 	}
 
-	s, u, pf, err := packages_service.GetFileStreamByPackageNameAndVersion(
+	s, pf, err := packages_service.GetFileStreamByPackageNameAndVersion(
 		ctx,
 		&packages_service.PackageInfo{
 			Owner:       ctx.Package.Owner,
@@ -475,8 +474,12 @@ func downloadFile(ctx *context.Context, fileFilter container.Set[string], fileKe
 		apiError(ctx, http.StatusInternalServerError, err)
 		return
 	}
+	defer s.Close()
 
-	helper.ServePackageFile(ctx, s, u, pf)
+	ctx.ServeContent(s, &context.ServeHeaderOptions{
+		Filename:     pf.Name,
+		LastModified: pf.CreatedUnix.AsLocalTime(),
+	})
 }
 
 // DeleteRecipeV1 deletes the requested recipe(s)
@@ -603,62 +606,67 @@ func DeletePackageV2(ctx *context.Context) {
 }
 
 func deleteRecipeOrPackage(apictx *context.Context, rref *conan_module.RecipeReference, ignoreRecipeRevision bool, pref *conan_module.PackageReference, ignorePackageRevision bool) error {
-	var pd *packages_model.PackageDescriptor
-	versionDeleted := false
+	ctx, committer, err := db.TxContext(db.DefaultContext)
+	if err != nil {
+		return err
+	}
+	defer committer.Close()
 
-	err := db.WithTx(apictx, func(ctx std_ctx.Context) error {
-		pv, err := packages_model.GetVersionByNameAndVersion(ctx, apictx.Package.Owner.ID, packages_model.TypeConan, rref.Name, rref.Version)
-		if err != nil {
-			return err
-		}
+	pv, err := packages_model.GetVersionByNameAndVersion(ctx, apictx.Package.Owner.ID, packages_model.TypeConan, rref.Name, rref.Version)
+	if err != nil {
+		return err
+	}
 
-		pd, err = packages_model.GetPackageDescriptor(ctx, pv)
-		if err != nil {
-			return err
-		}
+	pd, err := packages_model.GetPackageDescriptor(ctx, pv)
+	if err != nil {
+		return err
+	}
 
-		filter := map[string]string{
-			conan_module.PropertyRecipeUser:    rref.User,
-			conan_module.PropertyRecipeChannel: rref.Channel,
+	filter := map[string]string{
+		conan_module.PropertyRecipeUser:    rref.User,
+		conan_module.PropertyRecipeChannel: rref.Channel,
+	}
+	if !ignoreRecipeRevision {
+		filter[conan_module.PropertyRecipeRevision] = rref.RevisionOrDefault()
+	}
+	if pref != nil {
+		filter[conan_module.PropertyPackageReference] = pref.Reference
+		if !ignorePackageRevision {
+			filter[conan_module.PropertyPackageRevision] = pref.RevisionOrDefault()
 		}
-		if !ignoreRecipeRevision {
-			filter[conan_module.PropertyRecipeRevision] = rref.RevisionOrDefault()
-		}
-		if pref != nil {
-			filter[conan_module.PropertyPackageReference] = pref.Reference
-			if !ignorePackageRevision {
-				filter[conan_module.PropertyPackageRevision] = pref.RevisionOrDefault()
-			}
-		}
+	}
 
-		pfs, _, err := packages_model.SearchFiles(ctx, &packages_model.PackageFileSearchOptions{
-			VersionID:  pv.ID,
-			Properties: filter,
-		})
-		if err != nil {
-			return err
-		}
-		if len(pfs) == 0 {
-			return conan_model.ErrPackageReferenceNotExist
-		}
-
-		for _, pf := range pfs {
-			if err := packages_service.DeletePackageFile(ctx, pf); err != nil {
-				return err
-			}
-		}
-		has, err := packages_model.HasVersionFileReferences(ctx, pv.ID)
-		if err != nil {
-			return err
-		}
-		if !has {
-			versionDeleted = true
-
-			return packages_service.DeletePackageVersionAndReferences(ctx, pv)
-		}
-		return nil
+	pfs, _, err := packages_model.SearchFiles(ctx, &packages_model.PackageFileSearchOptions{
+		VersionID:  pv.ID,
+		Properties: filter,
 	})
 	if err != nil {
+		return err
+	}
+	if len(pfs) == 0 {
+		return conan_model.ErrPackageReferenceNotExist
+	}
+
+	for _, pf := range pfs {
+		if err := packages_service.DeletePackageFile(ctx, pf); err != nil {
+			return err
+		}
+	}
+
+	versionDeleted := false
+	has, err := packages_model.HasVersionFileReferences(ctx, pv.ID)
+	if err != nil {
+		return err
+	}
+	if !has {
+		versionDeleted = true
+
+		if err := packages_service.DeletePackageVersionAndReferences(ctx, pv); err != nil {
+			return err
+		}
+	}
+
+	if err := committer.Commit(); err != nil {
 		return err
 	}
 

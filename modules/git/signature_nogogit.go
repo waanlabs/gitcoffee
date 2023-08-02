@@ -43,13 +43,12 @@ func (s *Signature) Decode(b []byte) {
 //
 // but without the "author " at the beginning (this method should)
 // be used for author and committer.
-// FIXME: there are a lot of "return sig, err" (but the err is also nil), that's the old behavior, to avoid breaking
 func newSignatureFromCommitline(line []byte) (sig *Signature, err error) {
 	sig = new(Signature)
 	emailStart := bytes.LastIndexByte(line, '<')
 	emailEnd := bytes.LastIndexByte(line, '>')
 	if emailStart == -1 || emailEnd == -1 || emailEnd < emailStart {
-		return sig, err
+		return
 	}
 
 	if emailStart > 0 { // Empty name has already occurred, even if it shouldn't
@@ -59,7 +58,7 @@ func newSignatureFromCommitline(line []byte) (sig *Signature, err error) {
 
 	hasTime := emailEnd+2 < len(line)
 	if !hasTime {
-		return sig, err
+		return
 	}
 
 	// Check date format.
@@ -67,7 +66,7 @@ func newSignatureFromCommitline(line []byte) (sig *Signature, err error) {
 	if firstChar >= 48 && firstChar <= 57 {
 		idx := bytes.IndexByte(line[emailEnd+2:], ' ')
 		if idx < 0 {
-			return sig, err
+			return
 		}
 
 		timestring := string(line[emailEnd+2 : emailEnd+2+idx])
@@ -76,14 +75,14 @@ func newSignatureFromCommitline(line []byte) (sig *Signature, err error) {
 
 		idx += emailEnd + 3
 		if idx >= len(line) || idx+5 > len(line) {
-			return sig, err
+			return
 		}
 
 		timezone := string(line[idx : idx+5])
 		tzhours, err1 := strconv.ParseInt(timezone[0:3], 10, 64)
 		tzmins, err2 := strconv.ParseInt(timezone[3:], 10, 64)
 		if err1 != nil || err2 != nil {
-			return sig, err
+			return
 		}
 		if tzhours < 0 {
 			tzmins *= -1
@@ -93,7 +92,7 @@ func newSignatureFromCommitline(line []byte) (sig *Signature, err error) {
 	} else {
 		sig.When, err = time.Parse(GitTimeLayout, string(line[emailEnd+2:]))
 		if err != nil {
-			return sig, err
+			return
 		}
 	}
 	return sig, err

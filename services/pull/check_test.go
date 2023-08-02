@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"code.gitea.io/gitea/models/db"
 	issues_model "code.gitea.io/gitea/models/issues"
 	"code.gitea.io/gitea/models/unittest"
 	"code.gitea.io/gitea/modules/queue"
@@ -37,7 +36,7 @@ func TestPullRequest_AddToTaskQueue(t *testing.T) {
 	assert.NoError(t, err)
 
 	pr := unittest.AssertExistsAndLoadBean(t, &issues_model.PullRequest{ID: 2})
-	AddToTaskQueue(db.DefaultContext, pr)
+	AddToTaskQueue(pr)
 
 	assert.Eventually(t, func() bool {
 		pr = unittest.AssertExistsAndLoadBean(t, &issues_model.PullRequest{ID: 2})

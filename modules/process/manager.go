@@ -211,7 +211,7 @@ func (pm *Manager) nextPID() (start time.Time, pid IDType) {
 	pid = IDType(strconv.FormatInt(start.Unix(), 16))
 
 	if pm.next == 1 {
-		return start, pid
+		return
 	}
 	pid = IDType(string(pid) + "-" + strconv.FormatInt(pm.next, 10))
 	return start, pid

@@ -87,6 +87,18 @@
   }
 }
 
+.projects-header {
+  margin-bottom: 1rem;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.projects-toolbar {
+  display: flex;
+  justify-content: space-between;
+  padding-left: 4px;
+}
+
 .repository .issue-content-right .menu {
   overflow-x: auto;
   max-height: 500px;
@@ -126,6 +138,10 @@
   background-color: var(--color-header-wrapper);
 }
 
+.repository .header-wrapper .ui.tabs.divider {
+  border-bottom: 0;
+}
+
 .repository .header-wrapper .ui.tabular .svg {
   margin-right: 5px;
 }
@@ -157,7 +173,6 @@
 
 /* the label-filter is the first dropdown, it shouldn't be shown leftward, otherwise it may go out the viewport (left side) */
 .repository .filter.menu .ui.dropdown.label-filter .menu {
-  min-width: max-content;
   right: unset;
   left: 0;
 }
@@ -220,7 +235,6 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 5px;
 }
 
 @media (max-width: 767.68px) {
@@ -268,8 +282,7 @@
 }
 
 .repository.file.list #repo-files-table tbody .svg.octicon-file,
-.repository.file.list #repo-files-table tbody .svg.octicon-file-symlink-file,
-.repository.file.list #repo-files-table tbody .svg.octicon-file-directory-symlink {
+.repository.file.list #repo-files-table tbody .svg.octicon-file-symlink-file {
   color: var(--color-secondary-dark-7);
 }
 
@@ -465,7 +478,7 @@
 }
 
 .repository.file.list .non-diff-file-content .asciicast {
-  padding: 0 !important;
+  padding: 5px !important;
 }
 
 .non-diff-file-content .attached.segment,
@@ -570,6 +583,14 @@
 .repository.options #interval {
   width: 100px !important;
   min-width: 100px;
+}
+
+.repository.options .danger .item {
+  padding: 20px 15px;
+}
+
+.repository.options .danger .ui.divider {
+  margin: 0;
 }
 
 .repository.new.issue .comment.form .comment .avatar {
@@ -726,15 +747,8 @@
   right: 1px;
 }
 
-.repository.view.issue .pull.tabs.container {
-  width: 100%;
-  max-width: 100%;
-}
-
 .repository.view.issue .pull.tabular.menu {
-  margin-bottom: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
+  margin-bottom: 1rem;
 }
 
 .repository.view.issue .pull.tabular.menu .svg {
@@ -1015,7 +1029,7 @@
 
 .repository.view.issue .comment-list .comment .merge-section .divider {
   margin-left: -1rem;
-  width: calc(100% + 2rem);
+  margin-right: -1rem;
 }
 
 .repository.view.issue .comment-list .comment .merge-section.no-header::before,
@@ -1573,7 +1587,7 @@
 
 @media (max-width: 991.98px) {
   .repository .diff-detail-box {
-    flex-direction: row;
+    flex-direction: column;
     align-items: flex-start;
   }
 }
@@ -1823,6 +1837,7 @@
   border: none;
 }
 
+
 @media (max-width: 991.98px) {
   .diff-file-box {
     scroll-margin-top: 77px; /* match .repository .diff-detail-box */
@@ -1832,9 +1847,9 @@
 /* TODO: this can potentially be made "global" by removing the class prefix */
 .diff-file-box .ui.attached.header,
 .diff-file-box .ui.attached.table {
-  margin: 0; /* remove fomantic negative margins */
-  width: initial; /* remove fomantic over 100% width */
-  max-width: initial; /* remove fomantic over 100% width */
+  margin: 0; /* remove fomantic negative margins */;
+  width: initial; /* remove fomantic over 100% width */;
+  max-width: initial; /* remove fomantic over 100% width */;
 }
 
 .repository .diff-stats {
@@ -1886,10 +1901,14 @@
   flex: 1
 }
 
-.repository.packages .empty,
-.repository.actions .empty {
+
+.repository.packages .empty {
   padding-top: 70px;
   padding-bottom: 100px;
+}
+
+.repository.packages .empty .svg {
+  height: 48px;
 }
 
 .repository.packages .file-size {
@@ -1904,6 +1923,15 @@
   justify-content: space-between;
   gap: 8px;
   flex-wrap: wrap;
+}
+
+.repository.settings.collaboration .collaborator.list {
+  padding: 0;
+}
+
+.repository.settings.collaboration .collaborator.list > .item {
+  margin: 0;
+  line-height: 2em;
 }
 
 .repository.settings.collaboration #repo-collab-form #search-user-box .results {
@@ -2359,6 +2387,15 @@
   padding: 10px 0 0;
 }
 
+.settings .list.key .meta {
+  padding-top: 5px;
+  color: var(--color-text-light-2);
+}
+
+.settings .list.collaborator > .item {
+  padding: 0;
+}
+
 .ui.vertical.menu .header.item {
   font-size: 1.1em;
   background: var(--color-box-header);
@@ -2591,7 +2628,7 @@
 .labels-list .label {
   margin: 2px 0;
   display: inline-flex !important;
-  line-height: 1.3; /* there is a `font-size: 1.25em` for inside emoji, so here the line-height needs to be larger slightly */
+  line-height: 1.3em; /* there is a `font-size: 1.25em` for inside emoji, so here the line-height needs to be larger slightly */
 }
 
 /* Scoped labels with different colors on left and right */
@@ -2747,6 +2784,7 @@ tbody.commit-list {
 #repo-topics .repo-topic {
   font-weight: var(--font-weight-normal);
   cursor: pointer;
+  margin: 2px;
 }
 
 #new-dependency-drop-list.ui.selection.dropdown {
@@ -3090,35 +3128,16 @@ tbody.commit-list {
   }
 }
 
-.migrate-entries {
-  display: grid !important;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 25px;
-  margin: 0 !important;
-}
-
-@media (max-width: 767.98px) {
-  .migrate-entries {
-    grid-template-columns: repeat(1, 1fr);
-  }
-}
-
-.migrate-entry {
+.repository.migrate .card {
   transition: all 0.1s ease-in-out;
   box-shadow: none !important;
   border: 1px solid var(--color-secondary);
-  color: var(--color-text) !important;
-  width: auto !important;
-  margin: 0 !important;
+  color: var(--color-text);
 }
 
-.migrate-entry:hover {
+.repository.migrate .card:hover {
   transform: scale(105%);
   box-shadow: 0 0.5rem 1rem var(--color-shadow) !important;
-}
-
-.migrate-entry .description {
-  text-wrap: balance;
 }
 
 .commits-table .commits-table-right form {
@@ -3319,8 +3338,4 @@ tbody.commit-list {
   flex: 1;
   font-size: 18px;
   margin-left: 4px;
-}
-
-#cherry-pick-modal .scrolling.menu {
-  max-height: 200px;
 }

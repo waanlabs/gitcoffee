@@ -16,7 +16,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"code.gitea.io/gitea/models/db"
 	git_model "code.gitea.io/gitea/models/git"
 	issues_model "code.gitea.io/gitea/models/issues"
 	access_model "code.gitea.io/gitea/models/perm/access"
@@ -684,13 +683,7 @@ func getBranchesAndTagsForRepo(ctx gocontext.Context, repo *repo_model.Repositor
 	}
 	defer gitRepo.Close()
 
-	branches, err = git_model.FindBranchNames(ctx, git_model.FindBranchOptions{
-		RepoID: repo.ID,
-		ListOptions: db.ListOptions{
-			ListAll: true,
-		},
-		IsDeletedBranch: util.OptionalBoolFalse,
-	})
+	branches, _, err = gitRepo.GetBranchNames(0, 0)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -741,24 +734,12 @@ func CompareDiff(ctx *context.Context) {
 		return
 	}
 
-	headBranches, err := git_model.FindBranchNames(ctx, git_model.FindBranchOptions{
-		RepoID: ci.HeadRepo.ID,
-		ListOptions: db.ListOptions{
-			ListAll: true,
-		},
-		IsDeletedBranch: util.OptionalBoolFalse,
-	})
+	headBranches, _, err := ci.HeadGitRepo.GetBranchNames(0, 0)
 	if err != nil {
 		ctx.ServerError("GetBranches", err)
 		return
 	}
 	ctx.Data["HeadBranches"] = headBranches
-
-	// For compare repo branches
-	PrepareBranchList(ctx)
-	if ctx.Written() {
-		return
-	}
 
 	headTags, err := repo_model.GetTagNamesByRepoID(ctx, ci.HeadRepo.ID)
 	if err != nil {
