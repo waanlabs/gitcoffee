@@ -1,9 +1,0 @@
-.breadcrumb .divider {
-  color: var(--color-text-light-2);
-  margin-left: 3px;
-  margin-right: 3px;
-}
-
-.breadcrumb > * {
-  display: inline;
-}
