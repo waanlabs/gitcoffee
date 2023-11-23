@@ -8,6 +8,7 @@ import {handleGlobalEnterQuickSubmit} from './QuickSubmit.js';
 import {renderPreviewPanelContent} from '../repo-editor.js';
 import {easyMDEToolbarActions} from './EasyMDEToolbarActions.js';
 import {initTextExpander} from './TextExpander.js';
+import {showErrorToast} from '../../modules/toast.js';
 
 let elementIdCounter = 0;
 
@@ -26,7 +27,7 @@ export function validateTextareaNonEmpty($textarea) {
       $form[0]?.reportValidity();
     } else {
       // The alert won't hurt users too much, because we are dropping the EasyMDE and the check only occurs in a few places.
-      alert('Require non-empty content');
+      showErrorToast('Require non-empty content');
     }
     return false;
   }
@@ -78,6 +79,8 @@ class ComboMarkdownEditor {
     for (const el of this.textareaMarkdownToolbar.querySelectorAll('.markdown-toolbar-button')) {
       // upstream bug: The role code is never executed in base MarkdownButtonElement https://github.com/github/markdown-toolbar-element/issues/70
       el.setAttribute('role', 'button');
+      // the editor usually is in a form, so the buttons should have "type=button", avoiding conflicting with the form's submit.
+      if (el.nodeName === 'BUTTON' && !el.getAttribute('type')) el.setAttribute('type', 'button');
     }
 
     const monospaceButton = this.container.querySelector('.markdown-switch-monospace');
@@ -131,6 +134,12 @@ class ComboMarkdownEditor {
     $panelEditor.attr('data-tab', `markdown-writer-${elementIdCounter}`);
     $panelPreviewer.attr('data-tab', `markdown-previewer-${elementIdCounter}`);
     elementIdCounter++;
+
+    $tabEditor[0].addEventListener('click', () => {
+      requestAnimationFrame(() => {
+        this.focus();
+      });
+    });
 
     $tabs.tab();
 

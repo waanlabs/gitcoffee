@@ -10,17 +10,14 @@ import (
 
 	"code.gitea.io/gitea/models"
 	asymkey_model "code.gitea.io/gitea/models/asymkey"
+	authmodel "code.gitea.io/gitea/models/auth"
 	"code.gitea.io/gitea/modules/cache"
 	"code.gitea.io/gitea/modules/eventsource"
 	"code.gitea.io/gitea/modules/git"
 	"code.gitea.io/gitea/modules/highlight"
-	code_indexer "code.gitea.io/gitea/modules/indexer/code"
-	issue_indexer "code.gitea.io/gitea/modules/indexer/issues"
-	stats_indexer "code.gitea.io/gitea/modules/indexer/stats"
 	"code.gitea.io/gitea/modules/log"
 	"code.gitea.io/gitea/modules/markup"
 	"code.gitea.io/gitea/modules/markup/external"
-	"code.gitea.io/gitea/modules/notification"
 	"code.gitea.io/gitea/modules/setting"
 	"code.gitea.io/gitea/modules/ssh"
 	"code.gitea.io/gitea/modules/storage"
@@ -40,6 +37,8 @@ import (
 	"code.gitea.io/gitea/services/auth/source/oauth2"
 	"code.gitea.io/gitea/services/automerge"
 	"code.gitea.io/gitea/services/cron"
+	feed_service "code.gitea.io/gitea/services/feed"
+	indexer_service "code.gitea.io/gitea/services/indexer"
 	"code.gitea.io/gitea/services/mailer"
 	mailer_incoming "code.gitea.io/gitea/services/mailer/incoming"
 	markup_service "code.gitea.io/gitea/services/markup"
@@ -49,6 +48,7 @@ import (
 	repo_service "code.gitea.io/gitea/services/repository"
 	"code.gitea.io/gitea/services/repository/archiver"
 	"code.gitea.io/gitea/services/task"
+	"code.gitea.io/gitea/services/uinotification"
 	"code.gitea.io/gitea/services/webhook"
 )
 
@@ -93,7 +93,7 @@ func syncAppConfForGit(ctx context.Context) error {
 		mustInitCtx(ctx, repo_service.SyncRepositoryHooks)
 
 		log.Info("re-write ssh public keys ...")
-		mustInit(asymkey_model.RewriteAllPublicKeys)
+		mustInitCtx(ctx, asymkey_model.RewriteAllPublicKeys)
 
 		return system.AppState.Set(runtimeState)
 	}
@@ -119,7 +119,8 @@ func InitWebInstalled(ctx context.Context) {
 
 	mailer.NewContext(ctx)
 	mustInit(cache.NewContext)
-	notification.NewContext()
+	mustInit(feed_service.Init)
+	mustInit(uinotification.Init)
 	mustInit(archiver.Init)
 
 	highlight.NewContext()
@@ -138,12 +139,11 @@ func InitWebInstalled(ctx context.Context) {
 	mustInit(oauth2.Init)
 
 	mustInitCtx(ctx, models.Init)
-	mustInit(repo_service.Init)
+	mustInitCtx(ctx, authmodel.Init)
+	mustInitCtx(ctx, repo_service.Init)
 
 	// Booting long running goroutines.
-	issue_indexer.InitIssueIndexer(false)
-	code_indexer.Init()
-	mustInit(stats_indexer.Init)
+	mustInit(indexer_service.Init)
 
 	mirror_service.InitSyncMirrors()
 	mustInit(webhook.Init)
@@ -168,25 +168,27 @@ func InitWebInstalled(ctx context.Context) {
 }
 
 // NormalRoutes represents non install routes
-func NormalRoutes(ctx context.Context) *web.Route {
+func NormalRoutes() *web.Route {
 	_ = templates.HTMLRenderer()
 	r := web.NewRoute()
 	r.Use(common.ProtocolMiddlewares()...)
 
-	r.Mount("/", web_routers.Routes(ctx))
-	r.Mount("/api/v1", apiv1.Routes(ctx))
+	r.Mount("/", web_routers.Routes())
+	r.Mount("/api/v1", apiv1.Routes())
 	r.Mount("/api/internal", private.Routes())
+
+	r.Post("/-/fetch-redirect", common.FetchRedirectDelegate)
 
 	if setting.Packages.Enabled {
 		// This implements package support for most package managers
-		r.Mount("/api/packages", packages_router.CommonRoutes(ctx))
+		r.Mount("/api/packages", packages_router.CommonRoutes())
 		// This implements the OCI API (Note this is not preceded by /api but is instead /v2)
-		r.Mount("/v2", packages_router.ContainerRoutes(ctx))
+		r.Mount("/v2", packages_router.ContainerRoutes())
 	}
 
 	if setting.Actions.Enabled {
 		prefix := "/api/actions"
-		r.Mount(prefix, actions_router.Routes(ctx, prefix))
+		r.Mount(prefix, actions_router.Routes(prefix))
 
 		// TODO: Pipeline api used for runner internal communication with gitea server. but only artifact is used for now.
 		// In Github, it uses ACTIONS_RUNTIME_URL=https://pipelines.actions.githubusercontent.com/fLgcSHkPGySXeIFrg8W8OBSfeg3b5Fls1A1CwX566g8PayEGlg/

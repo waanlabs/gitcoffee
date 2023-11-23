@@ -24,7 +24,7 @@ it is just a matter of:
 - add some configuration to your `app.ini` file
 - restart your Gitea instance
 
-This supports rendering of whole files. If you want to render code blocks in markdown you would need to do something with javascript. See some examples on the [Customizing Gitea](../customizing-gitea) page.
+This supports rendering of whole files. If you want to render code blocks in markdown you would need to do something with javascript. See some examples on the [Customizing Gitea](administration/customizing-gitea.md) page.
 
 ## Installing external binaries
 
@@ -187,7 +187,7 @@ And so you could write some CSS:
 }
 ```
 
-Add your stylesheet to your custom directory e.g `custom/public/css/my-style-XXXXX.css` and import it using a custom header file `custom/templates/custom/header.tmpl`:
+Add your stylesheet to your custom directory e.g `custom/public/assets/css/my-style-XXXXX.css` and import it using a custom header file `custom/templates/custom/header.tmpl`:
 
 ```html
 <link rel="stylesheet" href="{{AppSubUrl}}/assets/css/my-style-XXXXX.css" />

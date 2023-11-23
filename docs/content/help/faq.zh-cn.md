@@ -142,9 +142,9 @@ Gitea不提供内置的Pages服务器。您需要一个专用的域名来提供�
 但是，您可以在app.ini的api部分将ENABLE_SWAGGER设置为false，以禁用其文档显示。
 有关更多信息，请参阅Gitea的[API文档](development/api-usage.md)。
 
-您可以在上查看最新的API（例如）<https://try.gitea.io/api/swagger>。
+您可以在上查看最新的API（例如）https://try.gitea.io/api/swagger
 
-您还可以在上查看`swagger.json`文件的示例 <https://try.gitea.io/swagger.v1.json>。
+您还可以在上查看`swagger.json`文件的示例 https://try.gitea.io/swagger.v1.json
 
 ## 调整服务器用于公共/私有使用
 
@@ -424,7 +424,7 @@ SystemD 上的标准输出默认会写入日志记录中。您可以尝试使用
 这可能会导致警告，例如：
 
 ```
-2020/08/02 11:32:29 ...rm/session_schema.go:360:Sync2() [W] Table user Column keep_activity_private db default is , struct default is 0
+2020/08/02 11:32:29 ...rm/session_schema.go:360:Sync() [W] Table user Column keep_activity_private db default is , struct default is 0
 ```
 
 可以安全地忽略这些警告，但您可以通过让 Gitea 重新创建这些表来停止这些警告，使用以下命令：

@@ -25,7 +25,7 @@ Use a better box model (opinionated).
 }
 
 html {
-  line-height: 1.15; /* 1. Correct the line height in all browsers. */
+  line-height: normal; /* 1. (not following the "modern-normalize") Do not change the browser's default line-height, the default value is font-dependent and roughly 1.2 */
   -webkit-text-size-adjust: 100%; /* 2. Prevent adjustments of font size after orientation changes in iOS. */
 }
 
@@ -144,9 +144,9 @@ Correct the inability to style clickable types in iOS and Safari.
 */
 
 button,
-[type='button'],
-[type='reset'],
-[type='submit'] {
+[type="button"],
+[type="reset"],
+[type="submit"] {
   -webkit-appearance: button;
 }
 
@@ -206,7 +206,7 @@ Correct the cursor style of increment and decrement buttons in Safari.
 2. Correct the outline style in Safari.
 */
 
-[type='search'] {
+[type="search"] {
   -webkit-appearance: textfield; /* 1 */
   outline-offset: -2px; /* 2 */
 }

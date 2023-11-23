@@ -39,7 +39,7 @@ func newIssueLabel(ctx context.Context, issue *Issue, label *Label, doer *user_m
 	}
 
 	if err = issue.LoadRepo(ctx); err != nil {
-		return
+		return err
 	}
 
 	opts := &CreateCommentOptions{
@@ -53,6 +53,8 @@ func newIssueLabel(ctx context.Context, issue *Issue, label *Label, doer *user_m
 	if _, err = CreateComment(ctx, opts); err != nil {
 		return err
 	}
+
+	issue.Labels = append(issue.Labels, label)
 
 	return updateLabelCols(ctx, label, "num_issues", "num_closed_issue")
 }
@@ -122,11 +124,20 @@ func newIssueLabels(ctx context.Context, issue *Issue, labels []*Label, doer *us
 	if err = issue.LoadRepo(ctx); err != nil {
 		return err
 	}
+
+	if err = issue.LoadLabels(ctx); err != nil {
+		return err
+	}
+
 	for _, l := range labels {
 		// Don't add already present labels and invalid labels
 		if HasIssueLabel(ctx, issue.ID, l.ID) ||
 			(l.RepoID != issue.RepoID && l.OrgID != issue.Repo.OwnerID) {
 			continue
+		}
+
+		if err = RemoveDuplicateExclusiveIssueLabels(ctx, issue, l, doer); err != nil {
+			return err
 		}
 
 		if err = newIssueLabel(ctx, issue, l, doer); err != nil {
@@ -168,7 +179,7 @@ func deleteIssueLabel(ctx context.Context, issue *Issue, label *Label, doer *use
 	}
 
 	if err = issue.LoadRepo(ctx); err != nil {
-		return
+		return err
 	}
 
 	opts := &CreateCommentOptions{

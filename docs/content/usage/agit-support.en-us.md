@@ -21,12 +21,12 @@ In Gitea `1.13`, support for [agit](https://git-repo.info/en/2020/03/agit-flow-a
 
 ## Creating PRs with Agit
 
-Agit allows to create PRs while pushing code to the remote repo. \
-This can be done by pushing to the branch followed by a specific refspec (a location identifier known to git). \
+Agit allows to create PRs while pushing code to the remote repo.
+This can be done by pushing to the branch followed by a specific refspec (a location identifier known to git).
 The following example illustrates this:
 
 ```shell
-git push origin HEAD:refs/for/master
+git push origin HEAD:refs/for/main
 ```
 
 The command has the following structure:
@@ -42,8 +42,8 @@ The command has the following structure:
   - `description`: The PR description
   - `force-push`: confirm force update the target branch
 
-Here's another advanced example for creating a new PR targeting `master` with `topic`, `title`, and `description`:
+Here's another advanced example for creating a new PR targeting `main` with `topic`, `title`, and `description`:
 
 ```shell
-git push origin HEAD:refs/for/master -o topic="Topic of my PR" -o title="Title of the PR" -o description="# The PR Description\nThis can be **any** markdown content.\n- [x] Ok"
+git push origin HEAD:refs/for/main -o topic="Topic of my PR" -o title="Title of the PR" -o description="# The PR Description\nThis can be **any** markdown content.\n- [x] Ok"
 ```

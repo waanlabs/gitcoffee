@@ -101,7 +101,7 @@ func CreateCodeComment(ctx *context.Context) {
 		renderConversation(ctx, comment)
 		return
 	}
-	ctx.Redirect(comment.Link())
+	ctx.Redirect(comment.Link(ctx))
 }
 
 // UpdateResolveConversation add or remove an Conversation resolved mark
@@ -127,7 +127,7 @@ func UpdateResolveConversation(ctx *context.Context) {
 	}
 
 	var permResult bool
-	if permResult, err = issues_model.CanMarkConversation(comment.Issue, ctx.Doer); err != nil {
+	if permResult, err = issues_model.CanMarkConversation(ctx, comment.Issue, ctx.Doer); err != nil {
 		ctx.ServerError("CanMarkConversation", err)
 		return
 	}
@@ -142,7 +142,7 @@ func UpdateResolveConversation(ctx *context.Context) {
 	}
 
 	if action == "Resolve" || action == "UnResolve" {
-		err = issues_model.MarkConversation(comment, ctx.Doer, action == "Resolve")
+		err = issues_model.MarkConversation(ctx, comment, ctx.Doer, action == "Resolve")
 		if err != nil {
 			ctx.ServerError("MarkConversation", err)
 			return
@@ -156,9 +156,7 @@ func UpdateResolveConversation(ctx *context.Context) {
 		renderConversation(ctx, comment)
 		return
 	}
-	ctx.JSON(http.StatusOK, map[string]any{
-		"ok": true,
-	})
+	ctx.JSONOK()
 }
 
 func renderConversation(ctx *context.Context, comment *issues_model.Comment) {
@@ -196,7 +194,7 @@ func SubmitReview(ctx *context.Context) {
 	}
 	if ctx.HasError() {
 		ctx.Flash.Error(ctx.Data["ErrorMsg"].(string))
-		ctx.Redirect(fmt.Sprintf("%s/pulls/%d/files", ctx.Repo.RepoLink, issue.Index))
+		ctx.JSONRedirect(fmt.Sprintf("%s/pulls/%d/files", ctx.Repo.RepoLink, issue.Index))
 		return
 	}
 
@@ -217,7 +215,7 @@ func SubmitReview(ctx *context.Context) {
 			}
 
 			ctx.Flash.Error(translated)
-			ctx.Redirect(fmt.Sprintf("%s/pulls/%d/files", ctx.Repo.RepoLink, issue.Index))
+			ctx.JSONRedirect(fmt.Sprintf("%s/pulls/%d/files", ctx.Repo.RepoLink, issue.Index))
 			return
 		}
 	}
@@ -231,14 +229,13 @@ func SubmitReview(ctx *context.Context) {
 	if err != nil {
 		if issues_model.IsContentEmptyErr(err) {
 			ctx.Flash.Error(ctx.Tr("repo.issues.review.content.empty"))
-			ctx.Redirect(fmt.Sprintf("%s/pulls/%d/files", ctx.Repo.RepoLink, issue.Index))
+			ctx.JSONRedirect(fmt.Sprintf("%s/pulls/%d/files", ctx.Repo.RepoLink, issue.Index))
 		} else {
 			ctx.ServerError("SubmitReview", err)
 		}
 		return
 	}
-
-	ctx.Redirect(fmt.Sprintf("%s/pulls/%d#%s", ctx.Repo.RepoLink, issue.Index, comm.HashTag()))
+	ctx.JSONRedirect(fmt.Sprintf("%s/pulls/%d#%s", ctx.Repo.RepoLink, issue.Index, comm.HashTag()))
 }
 
 // DismissReview dismissing stale review by repo admin
@@ -262,8 +259,8 @@ type viewedFilesUpdate struct {
 
 func UpdateViewedFiles(ctx *context.Context) {
 	// Find corresponding PR
-	issue := checkPullInfo(ctx)
-	if ctx.Written() {
+	issue, ok := getPullInfo(ctx)
+	if !ok {
 		return
 	}
 	pull := issue.PullRequest
