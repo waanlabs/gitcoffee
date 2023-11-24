@@ -23,7 +23,7 @@ First of all, you need a Gitea instance.
 You can follow the [documentation](installation/from-package.md) to set up a new instance or upgrade your existing one.
 It doesn't matter how you install or run Gitea, as long as its version is 1.19.0 or higher.
 
-Actions are disabled by default, so you need to add the following to the configuration file to enable it:
+Since 1.21.0, Actions are enabled by default. If you are using versions before 1.21.0, you need to add the following to the configuration file to enable it:
 
 ```ini
 [actions]
@@ -62,7 +62,11 @@ If you are unsure which address to use, the LAN address is usually the right cho
 
 `token` is used for authentication and identification, such as `P2U1U0oB4XaRCi8azcngmPCLbRpUGapalhmddh23`.
 It is one-time use only and cannot be used to register multiple runners.
-You can obtain tokens from `<your_gitea.com>/admin/runners`.
+You can obtain different levels of 'tokens' from the following places to create the corresponding level of' runners':
+
+- Instance level: The admin settings page, like `<your_gitea.com>/admin/actions/runners`.
+- Organization level: The organization settings page, like `<your_gitea.com>/<org>/settings/actions/runners`.
+- Repository level: The repository settings page, like `<your_gitea.com>/<owner>/<repo>/settings/actions/runners`.
 
 ![register runner](/images/usage/actions/register-runner.png)
 

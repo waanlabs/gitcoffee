@@ -175,7 +175,7 @@ func DownloadPackageFile(ctx *context.Context) {
 		return
 	}
 
-	s, pf, err := packages_service.GetFileStreamByPackageVersion(
+	s, u, pf, err := packages_service.GetFileStreamByPackageVersion(
 		ctx,
 		pvs[0],
 		&packages_service.PackageFileInfo{
@@ -190,12 +190,8 @@ func DownloadPackageFile(ctx *context.Context) {
 		apiError(ctx, http.StatusInternalServerError, err)
 		return
 	}
-	defer s.Close()
 
-	ctx.ServeContent(s, &context.ServeHeaderOptions{
-		Filename:     pf.Name,
-		LastModified: pf.CreatedUnix.AsLocalTime(),
-	})
+	helper.ServePackageFile(ctx, s, u, pf)
 }
 
 // UploadPackageFile adds a file to the package. If the package does not exist, it gets created.
@@ -238,6 +234,7 @@ func UploadPackageFile(ctx *context.Context) {
 	}
 
 	_, _, err = packages_service.CreatePackageAndAddFile(
+		ctx,
 		&packages_service.PackageCreationInfo{
 			PackageInfo: packages_service.PackageInfo{
 				Owner:       ctx.Package.Owner,
@@ -284,6 +281,7 @@ func DeletePackage(ctx *context.Context) {
 	packageVersion := ctx.FormString("version")
 
 	err := packages_service.RemovePackageVersionByNameAndVersion(
+		ctx,
 		ctx.Doer,
 		&packages_service.PackageInfo{
 			Owner:       ctx.Package.Owner,

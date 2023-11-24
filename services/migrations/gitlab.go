@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"code.gitea.io/gitea/modules/container"
 	"code.gitea.io/gitea/modules/log"
 	base "code.gitea.io/gitea/modules/migration"
 	"code.gitea.io/gitea/modules/structs"
@@ -309,6 +310,7 @@ func (g *GitlabDownloader) convertGitlabRelease(rel *gitlab.Release) *base.Relea
 	httpClient := NewMigrationHTTPClient()
 
 	for k, asset := range rel.Assets.Links {
+		assetID := asset.ID // Don't optimize this, for closure we need a local variable
 		r.Assets = append(r.Assets, &base.ReleaseAsset{
 			ID:            int64(asset.ID),
 			Name:          asset.Name,
@@ -316,13 +318,13 @@ func (g *GitlabDownloader) convertGitlabRelease(rel *gitlab.Release) *base.Relea
 			Size:          &zero,
 			DownloadCount: &zero,
 			DownloadFunc: func() (io.ReadCloser, error) {
-				link, _, err := g.client.ReleaseLinks.GetReleaseLink(g.repoID, rel.TagName, asset.ID, gitlab.WithContext(g.ctx))
+				link, _, err := g.client.ReleaseLinks.GetReleaseLink(g.repoID, rel.TagName, assetID, gitlab.WithContext(g.ctx))
 				if err != nil {
 					return nil, err
 				}
 
 				if !hasBaseURL(link.URL, g.baseURL) {
-					WarnAndNotice("Unexpected AssetURL for assetID[%d] in %s: %s", asset.ID, g, link.URL)
+					WarnAndNotice("Unexpected AssetURL for assetID[%d] in %s: %s", assetID, g, link.URL)
 					return io.NopCloser(strings.NewReader(link.URL)), nil
 				}
 
@@ -673,16 +675,15 @@ func (g *GitlabDownloader) GetReviews(reviewable base.Reviewable) ([]*base.Revie
 
 func (g *GitlabDownloader) awardsToReactions(awards []*gitlab.AwardEmoji) []*base.Reaction {
 	result := make([]*base.Reaction, 0, len(awards))
-	uniqCheck := make(map[string]struct{})
+	uniqCheck := make(container.Set[string])
 	for _, award := range awards {
 		uid := fmt.Sprintf("%s%d", award.Name, award.User.ID)
-		if _, ok := uniqCheck[uid]; !ok {
+		if uniqCheck.Add(uid) {
 			result = append(result, &base.Reaction{
 				UserID:   int64(award.User.ID),
 				UserName: award.User.Username,
 				Content:  award.Name,
 			})
-			uniqCheck[uid] = struct{}{}
 		}
 	}
 	return result

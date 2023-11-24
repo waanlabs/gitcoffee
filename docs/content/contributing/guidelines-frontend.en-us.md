@@ -92,6 +92,12 @@ it's recommended to use `const _promise = asyncFoo()` to tell readers
 that this is done by purpose, we want to call the async function and ignore the Promise.
 Some lint rules and IDEs also have warnings if the returned Promise is not handled.
 
+### Fetching data
+
+To fetch data, use the wrapper functions `GET`, `POST` etc. from `modules/fetch.js`. They
+accept a `data` option for the content, will automatically set CSRF token and return a
+Promise for a [Response](https://developer.mozilla.org/en-US/docs/Web/API/Response).
+
 ### HTML Attributes and `dataset`
 
 The usage of `dataset` is forbidden, its camel-casing behaviour makes it hard to grep for attributes.
@@ -133,3 +139,7 @@ A lot of legacy code already existed before this document's written. It's recomm
 ### Vue3 and JSX
 
 Gitea is using Vue3 now. We decided not to introduce JSX to keep the HTML and the JavaScript code separated.
+
+### UI Examples
+
+Gitea uses some self-made UI elements and customizes others to integrate them better into the general UI approach. When running Gitea in development mode (`RUN_MODE=dev`), a page with some standardized UI examples is available under `http(s)://your-gitea-url:port/devtest`.

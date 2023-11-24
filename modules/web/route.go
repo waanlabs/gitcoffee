@@ -7,31 +7,31 @@ import (
 	"net/http"
 	"strings"
 
-	"code.gitea.io/gitea/modules/context"
 	"code.gitea.io/gitea/modules/web/middleware"
 
 	"gitea.com/go-chi/binding"
-	chi "github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5"
 )
 
-// Bind binding an obj to a handler
-func Bind[T any](_ T) any {
-	return func(ctx *context.Context) {
+// Bind binding an obj to a handler's context data
+func Bind[T any](_ T) http.HandlerFunc {
+	return func(resp http.ResponseWriter, req *http.Request) {
 		theObj := new(T) // create a new form obj for every request but not use obj directly
-		binding.Bind(ctx.Req, theObj)
-		SetForm(ctx, theObj)
-		middleware.AssignForm(theObj, ctx.Data)
+		data := middleware.GetContextData(req.Context())
+		binding.Bind(req, theObj)
+		SetForm(data, theObj)
+		middleware.AssignForm(theObj, data)
 	}
 }
 
 // SetForm set the form object
-func SetForm(data middleware.ContextDataStore, obj any) {
-	data.GetData()["__form"] = obj
+func SetForm(dataStore middleware.ContextDataStore, obj any) {
+	dataStore.GetData()["__form"] = obj
 }
 
 // GetForm returns the validate form information
-func GetForm(data middleware.ContextDataStore) any {
-	return data.GetData()["__form"]
+func GetForm(dataStore middleware.ContextDataStore) any {
+	return dataStore.GetData()["__form"]
 }
 
 // Route defines a route based on chi's router
@@ -50,7 +50,9 @@ func NewRoute() *Route {
 // Use supports two middlewares
 func (r *Route) Use(middlewares ...any) {
 	for _, m := range middlewares {
-		r.R.Use(toHandlerProvider(m))
+		if m != nil {
+			r.R.Use(toHandlerProvider(m))
+		}
 	}
 }
 
@@ -79,19 +81,27 @@ func (r *Route) getPattern(pattern string) string {
 }
 
 func (r *Route) wrapMiddlewareAndHandler(h []any) ([]func(http.Handler) http.Handler, http.HandlerFunc) {
-	handlerProviders := make([]func(http.Handler) http.Handler, 0, len(r.curMiddlewares)+len(h))
+	handlerProviders := make([]func(http.Handler) http.Handler, 0, len(r.curMiddlewares)+len(h)+1)
 	for _, m := range r.curMiddlewares {
-		handlerProviders = append(handlerProviders, toHandlerProvider(m))
+		if m != nil {
+			handlerProviders = append(handlerProviders, toHandlerProvider(m))
+		}
 	}
 	for _, m := range h {
-		handlerProviders = append(handlerProviders, toHandlerProvider(m))
+		if h != nil {
+			handlerProviders = append(handlerProviders, toHandlerProvider(m))
+		}
 	}
 	middlewares := handlerProviders[:len(handlerProviders)-1]
 	handlerFunc := handlerProviders[len(handlerProviders)-1](nil).ServeHTTP
+	mockPoint := RouteMockPoint(MockAfterMiddlewares)
+	if mockPoint != nil {
+		middlewares = append(middlewares, mockPoint)
+	}
 	return middlewares, handlerFunc
 }
 
-func (r *Route) Methods(method, pattern string, h []any) {
+func (r *Route) Methods(method, pattern string, h ...any) {
 	middlewares, handlerFunc := r.wrapMiddlewareAndHandler(h)
 	fullPattern := r.getPattern(pattern)
 	if strings.Contains(method, ",") {
@@ -116,49 +126,44 @@ func (r *Route) Any(pattern string, h ...any) {
 	r.R.With(middlewares...).HandleFunc(r.getPattern(pattern), handlerFunc)
 }
 
-// RouteMethods delegate special methods, it is an alias of "Methods", while the "pattern" is the first parameter
-func (r *Route) RouteMethods(pattern, methods string, h ...any) {
-	r.Methods(methods, pattern, h)
-}
-
 // Delete delegate delete method
 func (r *Route) Delete(pattern string, h ...any) {
-	r.Methods("DELETE", pattern, h)
+	r.Methods("DELETE", pattern, h...)
 }
 
 // Get delegate get method
 func (r *Route) Get(pattern string, h ...any) {
-	r.Methods("GET", pattern, h)
+	r.Methods("GET", pattern, h...)
 }
 
 // GetOptions delegate get and options method
 func (r *Route) GetOptions(pattern string, h ...any) {
-	r.Methods("GET,OPTIONS", pattern, h)
+	r.Methods("GET,OPTIONS", pattern, h...)
 }
 
 // PostOptions delegate post and options method
 func (r *Route) PostOptions(pattern string, h ...any) {
-	r.Methods("POST,OPTIONS", pattern, h)
+	r.Methods("POST,OPTIONS", pattern, h...)
 }
 
 // Head delegate head method
 func (r *Route) Head(pattern string, h ...any) {
-	r.Methods("HEAD", pattern, h)
+	r.Methods("HEAD", pattern, h...)
 }
 
 // Post delegate post method
 func (r *Route) Post(pattern string, h ...any) {
-	r.Methods("POST", pattern, h)
+	r.Methods("POST", pattern, h...)
 }
 
 // Put delegate put method
 func (r *Route) Put(pattern string, h ...any) {
-	r.Methods("PUT", pattern, h)
+	r.Methods("PUT", pattern, h...)
 }
 
 // Patch delegate patch method
 func (r *Route) Patch(pattern string, h ...any) {
-	r.Methods("PATCH", pattern, h)
+	r.Methods("PATCH", pattern, h...)
 }
 
 // ServeHTTP implements http.Handler

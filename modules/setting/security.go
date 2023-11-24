@@ -76,7 +76,7 @@ func loadSecret(sec ConfigSection, uriKey, verbatimKey string) string {
 
 	// only file URIs are allowed
 	default:
-		log.Fatal("Unsupported URI-Scheme %q (INTERNAL_TOKEN_URI = %q)", tempURI.Scheme, uri)
+		log.Fatal("Unsupported URI-Scheme %q (%q = %q)", tempURI.Scheme, uriKey, uri)
 		return ""
 	}
 }
@@ -124,7 +124,7 @@ func loadSecurityFrom(rootCfg ConfigProvider) {
 		ReverseProxyTrustedProxies = []string{"127.0.0.0/8", "::1/128"}
 	}
 
-	MinPasswordLength = sec.Key("MIN_PASSWORD_LENGTH").MustInt(6)
+	MinPasswordLength = sec.Key("MIN_PASSWORD_LENGTH").MustInt(8)
 	ImportLocalPaths = sec.Key("IMPORT_LOCAL_PATHS").MustBool(false)
 	DisableGitHooks = sec.Key("DISABLE_GIT_HOOKS").MustBool(true)
 	DisableWebhooks = sec.Key("DISABLE_WEBHOOKS").MustBool(false)

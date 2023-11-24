@@ -11,6 +11,7 @@ import (
 	user_model "code.gitea.io/gitea/models/user"
 	"code.gitea.io/gitea/modules/log"
 	api "code.gitea.io/gitea/modules/structs"
+	"code.gitea.io/gitea/modules/util"
 )
 
 // ToAPIComment converts a issues_model.Comment to the api.Comment format for API usage
@@ -18,9 +19,9 @@ func ToAPIComment(ctx context.Context, repo *repo_model.Repository, c *issues_mo
 	return &api.Comment{
 		ID:          c.ID,
 		Poster:      ToUser(ctx, c.Poster, nil),
-		HTMLURL:     c.HTMLURL(),
-		IssueURL:    c.IssueURL(),
-		PRURL:       c.PRURL(),
+		HTMLURL:     c.HTMLURL(ctx),
+		IssueURL:    c.IssueURL(ctx),
+		PRURL:       c.PRURL(ctx),
 		Body:        c.Content,
 		Attachments: ToAPIAttachments(repo, c.Attachments),
 		Created:     c.CreatedUnix.AsTime(),
@@ -36,19 +37,19 @@ func ToTimelineComment(ctx context.Context, repo *repo_model.Repository, c *issu
 		return nil
 	}
 
-	err = c.LoadAssigneeUserAndTeam()
+	err = c.LoadAssigneeUserAndTeam(ctx)
 	if err != nil {
 		log.Error("LoadAssigneeUserAndTeam: %v", err)
 		return nil
 	}
 
-	err = c.LoadResolveDoer()
+	err = c.LoadResolveDoer(ctx)
 	if err != nil {
 		log.Error("LoadResolveDoer: %v", err)
 		return nil
 	}
 
-	err = c.LoadDepIssueDetails()
+	err = c.LoadDepIssueDetails(ctx)
 	if err != nil {
 		log.Error("LoadDepIssueDetails: %v", err)
 		return nil
@@ -60,19 +61,30 @@ func ToTimelineComment(ctx context.Context, repo *repo_model.Repository, c *issu
 		return nil
 	}
 
-	err = c.LoadLabel()
+	err = c.LoadLabel(ctx)
 	if err != nil {
 		log.Error("LoadLabel: %v", err)
 		return nil
+	}
+
+	if c.Content != "" {
+		if (c.Type == issues_model.CommentTypeAddTimeManual ||
+			c.Type == issues_model.CommentTypeStopTracking ||
+			c.Type == issues_model.CommentTypeDeleteTimeManual) &&
+			c.Content[0] == '|' {
+			// TimeTracking Comments from v1.21 on store the seconds instead of an formated string
+			// so we check for the "|" delimeter and convert new to legacy format on demand
+			c.Content = util.SecToTime(c.Content[1:])
+		}
 	}
 
 	comment := &api.TimelineComment{
 		ID:       c.ID,
 		Type:     c.Type.String(),
 		Poster:   ToUser(ctx, c.Poster, nil),
-		HTMLURL:  c.HTMLURL(),
-		IssueURL: c.IssueURL(),
-		PRURL:    c.PRURL(),
+		HTMLURL:  c.HTMLURL(ctx),
+		IssueURL: c.IssueURL(ctx),
+		PRURL:    c.PRURL(ctx),
 		Body:     c.Content,
 		Created:  c.CreatedUnix.AsTime(),
 		Updated:  c.UpdatedUnix.AsTime(),
@@ -102,7 +114,7 @@ func ToTimelineComment(ctx context.Context, repo *repo_model.Repository, c *issu
 	}
 
 	if c.Time != nil {
-		err = c.Time.LoadAttributes()
+		err = c.Time.LoadAttributes(ctx)
 		if err != nil {
 			log.Error("Time.LoadAttributes: %v", err)
 			return nil

@@ -16,6 +16,7 @@ import (
 
 	"code.gitea.io/gitea/models/db"
 	packages_model "code.gitea.io/gitea/models/packages"
+	nuget_model "code.gitea.io/gitea/models/packages/nuget"
 	"code.gitea.io/gitea/modules/context"
 	"code.gitea.io/gitea/modules/log"
 	packages_module "code.gitea.io/gitea/modules/packages"
@@ -115,7 +116,7 @@ func SearchServiceV2(ctx *context.Context) {
 	skip, take := ctx.FormInt("$skip"), ctx.FormInt("$top")
 	paginator := db.NewAbsoluteListOptions(skip, take)
 
-	pvs, total, err := packages_model.SearchVersions(ctx, &packages_model.PackageSearchOptions{
+	pvs, total, err := packages_model.SearchLatestVersions(ctx, &packages_model.PackageSearchOptions{
 		OwnerID: ctx.Package.Owner.ID,
 		Type:    packages_model.TypeNuGet,
 		Name: packages_model.SearchValue{
@@ -166,9 +167,8 @@ func SearchServiceV2(ctx *context.Context) {
 
 // http://docs.oasis-open.org/odata/odata/v4.0/errata03/os/complete/part2-url-conventions/odata-v4.0-errata03-os-part2-url-conventions-complete.html#_Toc453752351
 func SearchServiceV2Count(ctx *context.Context) {
-	count, err := packages_model.CountVersions(ctx, &packages_model.PackageSearchOptions{
+	count, err := nuget_model.CountPackages(ctx, &packages_model.PackageSearchOptions{
 		OwnerID: ctx.Package.Owner.ID,
-		Type:    packages_model.TypeNuGet,
 		Name: packages_model.SearchValue{
 			Value: getSearchTerm(ctx),
 		},
@@ -184,9 +184,8 @@ func SearchServiceV2Count(ctx *context.Context) {
 
 // https://docs.microsoft.com/en-us/nuget/api/search-query-service-resource#search-for-packages
 func SearchServiceV3(ctx *context.Context) {
-	pvs, count, err := packages_model.SearchVersions(ctx, &packages_model.PackageSearchOptions{
+	pvs, count, err := nuget_model.SearchVersions(ctx, &packages_model.PackageSearchOptions{
 		OwnerID:    ctx.Package.Owner.ID,
-		Type:       packages_model.TypeNuGet,
 		Name:       packages_model.SearchValue{Value: ctx.FormTrim("q")},
 		IsInternal: util.OptionalBoolFalse,
 		Paginator: db.NewAbsoluteListOptions(
@@ -394,7 +393,7 @@ func DownloadPackageFile(ctx *context.Context) {
 	packageVersion := ctx.Params("version")
 	filename := ctx.Params("filename")
 
-	s, pf, err := packages_service.GetFileStreamByPackageNameAndVersion(
+	s, u, pf, err := packages_service.GetFileStreamByPackageNameAndVersion(
 		ctx,
 		&packages_service.PackageInfo{
 			Owner:       ctx.Package.Owner,
@@ -414,12 +413,8 @@ func DownloadPackageFile(ctx *context.Context) {
 		apiError(ctx, http.StatusInternalServerError, err)
 		return
 	}
-	defer s.Close()
 
-	ctx.ServeContent(s, &context.ServeHeaderOptions{
-		Filename:     pf.Name,
-		LastModified: pf.CreatedUnix.AsLocalTime(),
-	})
+	helper.ServePackageFile(ctx, s, u, pf)
 }
 
 // UploadPackage creates a new package with the metadata contained in the uploaded nupgk file
@@ -436,6 +431,7 @@ func UploadPackage(ctx *context.Context) {
 	}
 
 	_, _, err := packages_service.CreatePackageAndAddFile(
+		ctx,
 		&packages_service.PackageCreationInfo{
 			PackageInfo: packages_service.PackageInfo{
 				Owner:       ctx.Package.Owner,
@@ -508,6 +504,7 @@ func UploadSymbolPackage(ctx *context.Context) {
 	}
 
 	_, err = packages_service.AddFileToExistingPackage(
+		ctx,
 		pi,
 		&packages_service.PackageFileCreationInfo{
 			PackageFileInfo: packages_service.PackageFileInfo{
@@ -534,6 +531,7 @@ func UploadSymbolPackage(ctx *context.Context) {
 
 	for _, pdb := range pdbs {
 		_, err := packages_service.AddFileToExistingPackage(
+			ctx,
 			pi,
 			&packages_service.PackageFileCreationInfo{
 				PackageFileInfo: packages_service.PackageFileInfo{
@@ -632,7 +630,7 @@ func DownloadSymbolFile(ctx *context.Context) {
 		return
 	}
 
-	s, pf, err := packages_service.GetPackageFileStream(ctx, pfs[0])
+	s, u, pf, err := packages_service.GetPackageFileStream(ctx, pfs[0])
 	if err != nil {
 		if err == packages_model.ErrPackageNotExist || err == packages_model.ErrPackageFileNotExist {
 			apiError(ctx, http.StatusNotFound, err)
@@ -641,12 +639,8 @@ func DownloadSymbolFile(ctx *context.Context) {
 		apiError(ctx, http.StatusInternalServerError, err)
 		return
 	}
-	defer s.Close()
 
-	ctx.ServeContent(s, &context.ServeHeaderOptions{
-		Filename:     pf.Name,
-		LastModified: pf.CreatedUnix.AsLocalTime(),
-	})
+	helper.ServePackageFile(ctx, s, u, pf)
 }
 
 // DeletePackage hard deletes the package
@@ -656,6 +650,7 @@ func DeletePackage(ctx *context.Context) {
 	packageVersion := ctx.Params("version")
 
 	err := packages_service.RemovePackageVersionByNameAndVersion(
+		ctx,
 		ctx.Doer,
 		&packages_service.PackageInfo{
 			Owner:       ctx.Package.Owner,

@@ -43,21 +43,21 @@ for its glob syntax. Here are some examples:
 
 - List all template files, in any virtual directory: `**.tmpl`
 - List all mail template files: `templates/mail/**.tmpl`
-- List all files inside `public/img`: `public/img/**`
+- List all files inside `public/assets/img`: `public/assets/img/**`
 
 Don't forget to use quotes for the patterns, as spaces, `*` and other characters might have
 a special meaning for your command shell.
 
 If no pattern is provided, all files are listed.
 
-### Example
+### Example: Listing all embedded files
 
 Listing all embedded files with `openid` in their path:
 
 ```sh
 $ gitea embedded list '**openid**'
-public/img/auth/openid_connect.svg
-public/img/openid-16x16.png
+public/assets/img/auth/openid_connect.svg
+public/assets/img/openid-16x16.png
 templates/user/auth/finalize_openid.tmpl
 templates/user/auth/signin_openid.tmpl
 templates/user/auth/signup_openid_connect.tmpl
@@ -101,7 +101,7 @@ When Gitea is upgraded to a new version (by replacing the executable), many of t
 embedded files will suffer changes. Gitea will honor and use any files found
 in the `custom` directory, even if they are old and incompatible.
 
-### Example
+### Example: Extracting mail templates
 
 Extracting mail templates to a temporary directory:
 

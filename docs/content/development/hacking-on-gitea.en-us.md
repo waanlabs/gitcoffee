@@ -44,6 +44,9 @@ Gitea uses `gofmt` to format source code. However, the results of
 recommended to install the version of Go that our continuous integration is
 running. As of last update, the Go version should be @goVersion@.
 
+To lint the template files, ensure [Python](https://www.python.org/) and
+[Poetry](https://python-poetry.org/) are installed.
+
 ## Installing Make
 
 Gitea makes heavy use of Make to automate tasks and improve development. This
@@ -211,7 +214,7 @@ REPO_INDEXER_CONN_STR = http://elastic:changeme@localhost:9200
 
 ### Building and adding SVGs
 
-SVG icons are built using the `make svg` target which compiles the icon sources defined in `build/generate-svg.js` into the output directory `public/img/svg`. Custom icons can be added in the `web_src/svg` directory.
+SVG icons are built using the `make svg` target which compiles the icon sources defined in `build/generate-svg.js` into the output directory `public/assets/img/svg`. Custom icons can be added in the `web_src/svg` directory.
 
 ### Building the Logo
 

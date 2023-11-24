@@ -9,7 +9,7 @@ import (
 	"code.gitea.io/gitea/modules/log"
 	"code.gitea.io/gitea/modules/setting"
 
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 )
 
 func main() {
@@ -46,25 +46,29 @@ func main() {
 	and "GITEA__LOG_0x2E_CONSOLE__STDERR=false". Other examples can be found
 	on the configuration cheat sheet.`
 	app.Flags = []cli.Flag{
-		cli.StringFlag{
-			Name:  "custom-path, C",
-			Value: setting.CustomPath,
-			Usage: "Custom path file path",
+		&cli.StringFlag{
+			Name:    "custom-path",
+			Aliases: []string{"C"},
+			Value:   setting.CustomPath,
+			Usage:   "Custom path file path",
 		},
-		cli.StringFlag{
-			Name:  "config, c",
-			Value: setting.CustomConf,
-			Usage: "Custom configuration file path",
+		&cli.StringFlag{
+			Name:    "config",
+			Aliases: []string{"c"},
+			Value:   setting.CustomConf,
+			Usage:   "Custom configuration file path",
 		},
-		cli.StringFlag{
-			Name:  "work-path, w",
-			Value: setting.AppWorkPath,
-			Usage: "Set the gitea working path",
+		&cli.StringFlag{
+			Name:    "work-path",
+			Aliases: []string{"w"},
+			Value:   setting.AppWorkPath,
+			Usage:   "Set the gitea working path",
 		},
-		cli.StringFlag{
-			Name:  "out, o",
-			Value: "",
-			Usage: "Destination file to write to",
+		&cli.StringFlag{
+			Name:    "out",
+			Aliases: []string{"o"},
+			Value:   "",
+			Usage:   "Destination file to write to",
 		},
 	}
 	app.Action = runEnvironmentToIni

@@ -96,7 +96,11 @@ func (b *Base) SetTotalCountHeader(total int64) {
 
 // Written returns true if there are something sent to web browser
 func (b *Base) Written() bool {
-	return b.Resp.Status() > 0
+	return b.Resp.WrittenStatus() != 0
+}
+
+func (b *Base) WrittenStatus() int {
+	return b.Resp.WrittenStatus()
 }
 
 // Status writes status code
@@ -141,6 +145,10 @@ func (b *Base) RemoteAddr() string {
 func (b *Base) Params(p string) string {
 	s, _ := url.PathUnescape(chi.URLParam(b.Req, strings.TrimPrefix(p, ":")))
 	return s
+}
+
+func (b *Base) PathParamRaw(p string) string {
+	return chi.URLParam(b.Req, strings.TrimPrefix(p, ":"))
 }
 
 // ParamsInt64 returns the param on route as int64

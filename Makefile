@@ -23,19 +23,19 @@ SHASUM ?= shasum -a 256
 HAS_GO := $(shell hash $(GO) > /dev/null 2>&1 && echo yes)
 COMMA := ,
 
-XGO_VERSION := go-1.20.x
+XGO_VERSION := go-1.21.x
 
-AIR_PACKAGE ?= github.com/cosmtrek/air@v1.43.0
+AIR_PACKAGE ?= github.com/cosmtrek/air@v1.44.0
 EDITORCONFIG_CHECKER_PACKAGE ?= github.com/editorconfig-checker/editorconfig-checker/cmd/editorconfig-checker@2.7.0
 GOFUMPT_PACKAGE ?= mvdan.cc/gofumpt@v0.5.0
-GOLANGCI_LINT_PACKAGE ?= github.com/golangci/golangci-lint/cmd/golangci-lint@v1.52.2
-GXZ_PAGAGE ?= github.com/ulikunitz/xz/cmd/gxz@v0.5.11
+GOLANGCI_LINT_PACKAGE ?= github.com/golangci/golangci-lint/cmd/golangci-lint@v1.54.1
+GXZ_PACKAGE ?= github.com/ulikunitz/xz/cmd/gxz@v0.5.11
 MISSPELL_PACKAGE ?= github.com/client9/misspell/cmd/misspell@v0.3.4
-SWAGGER_PACKAGE ?= github.com/go-swagger/go-swagger/cmd/swagger@v0.30.4
+SWAGGER_PACKAGE ?= github.com/go-swagger/go-swagger/cmd/swagger@v0.30.5
 XGO_PACKAGE ?= src.techknowlogick.com/xgo@latest
 GO_LICENSES_PACKAGE ?= github.com/google/go-licenses@v1.6.0
-GOVULNCHECK_PACKAGE ?= golang.org/x/vuln/cmd/govulncheck@latest
-ACTIONLINT_PACKAGE ?= github.com/rhysd/actionlint/cmd/actionlint@latest
+GOVULNCHECK_PACKAGE ?= golang.org/x/vuln/cmd/govulncheck@v1.0.1
+ACTIONLINT_PACKAGE ?= github.com/rhysd/actionlint/cmd/actionlint@v1.6.25
 
 DOCKER_IMAGE ?= gitea/gitea
 DOCKER_TAG ?= latest
@@ -68,7 +68,7 @@ endif
 
 EXTRA_GOFLAGS ?=
 
-MAKE_VERSION := $(shell "$(MAKE)" -v | head -n 1)
+MAKE_VERSION := $(shell "$(MAKE)" -v | cat | head -n 1)
 MAKE_EVIDENCE_DIR := .make_evidence
 
 ifeq ($(RACE_ENABLED),true)
@@ -81,12 +81,6 @@ HUGO_VERSION ?= 0.111.3
 
 GITHUB_REF_TYPE ?= branch
 GITHUB_REF_NAME ?= $(shell git rev-parse --abbrev-ref HEAD)
-
-# backwards compatible to build with Drone
-ifneq ($(DRONE_TAG),)
-	GITHUB_REF_TYPE := tag
-	GITHUB_REF_NAME := $(DRONE_TAG)
-endif
 
 ifneq ($(GITHUB_REF_TYPE),branch)
 	VERSION ?= $(subst v,,$(GITHUB_REF_NAME))
@@ -122,15 +116,15 @@ FOMANTIC_WORK_DIR := web_src/fomantic
 
 WEBPACK_SOURCES := $(shell find web_src/js web_src/css -type f)
 WEBPACK_CONFIGS := webpack.config.js
-WEBPACK_DEST := public/js/index.js public/css/index.css
-WEBPACK_DEST_ENTRIES := public/js public/css public/fonts public/img/webpack
+WEBPACK_DEST := public/assets/js/index.js public/assets/css/index.css
+WEBPACK_DEST_ENTRIES := public/assets/js public/assets/css public/assets/fonts public/assets/img/webpack
 
 BINDATA_DEST := modules/public/bindata.go modules/options/bindata.go modules/templates/bindata.go
 BINDATA_HASH := $(addsuffix .hash,$(BINDATA_DEST))
 
 GENERATED_GO_DEST := modules/charset/invisible_gen.go modules/charset/ambiguous_gen.go
 
-SVG_DEST_DIR := public/img/svg
+SVG_DEST_DIR := public/assets/img/svg
 
 AIR_TMP_DIR := .air
 
@@ -206,6 +200,7 @@ help:
 	@echo " - deps-frontend                    install frontend dependencies"
 	@echo " - deps-backend                     install backend dependencies"
 	@echo " - deps-tools                       install tool dependencies"
+	@echo " - deps-py                          install python dependencies"
 	@echo " - lint                             lint everything"
 	@echo " - lint-fix                         lint everything and fix issues"
 	@echo " - lint-actions                     lint action workflow files"
@@ -222,6 +217,8 @@ help:
 	@echo " - lint-css-fix                     lint css files and fix issues"
 	@echo " - lint-md                          lint markdown files"
 	@echo " - lint-swagger                     lint swagger files"
+	@echo " - lint-templates                   lint template files"
+	@echo " - lint-yaml                        lint yaml files"
 	@echo " - checks                           run various consistency checks"
 	@echo " - checks-frontend                  check frontend files"
 	@echo " - checks-backend                   check backend files"
@@ -229,6 +226,9 @@ help:
 	@echo " - test-frontend                    test frontend files"
 	@echo " - test-backend                     test backend files"
 	@echo " - test-e2e[\#TestSpecificName]     test end to end using playwright"
+	@echo " - update                           update js and py dependencies"
+	@echo " - update-js                        update js dependencies"
+	@echo " - update-py                        update py dependencies"
 	@echo " - webpack                          build webpack files"
 	@echo " - svg                              build svg files"
 	@echo " - fomantic                         build fomantic files"
@@ -361,10 +361,10 @@ lint: lint-frontend lint-backend
 lint-fix: lint-frontend-fix lint-backend-fix
 
 .PHONY: lint-frontend
-lint-frontend: lint-js lint-css lint-md lint-swagger
+lint-frontend: lint-js lint-css
 
 .PHONY: lint-frontend-fix
-lint-frontend-fix: lint-js-fix lint-css-fix lint-md lint-swagger
+lint-frontend-fix: lint-js-fix lint-css-fix
 
 .PHONY: lint-backend
 lint-backend: lint-go lint-go-vet lint-editorconfig
@@ -424,6 +424,14 @@ lint-editorconfig:
 .PHONY: lint-actions
 lint-actions:
 	$(GO) run $(ACTIONLINT_PACKAGE)
+
+.PHONY: lint-templates
+lint-templates: .venv
+	@poetry run djlint $(shell find templates -type f -iname '*.tmpl')
+
+.PHONY: lint-yaml
+lint-yaml: .venv
+	@poetry run yamllint .
 
 .PHONY: watch
 watch:
@@ -839,30 +847,18 @@ release-windows: | $(DIST_DIRS)
 ifeq (,$(findstring gogit,$(TAGS)))
 	CGO_CFLAGS="$(CGO_CFLAGS)" $(GO) run $(XGO_PACKAGE) -go $(XGO_VERSION) -buildmode exe -dest $(DIST)/binaries -tags 'osusergo gogit $(TAGS)' -ldflags '-linkmode external -extldflags "-static" $(LDFLAGS)' -targets 'windows/*' -out gitea-$(VERSION)-gogit .
 endif
-ifneq ($(DRONE_TAG),)
-	cp /build/* $(DIST)/binaries
-endif
 
 .PHONY: release-linux
 release-linux: | $(DIST_DIRS)
 	CGO_CFLAGS="$(CGO_CFLAGS)" $(GO) run $(XGO_PACKAGE) -go $(XGO_VERSION) -dest $(DIST)/binaries -tags 'netgo osusergo $(TAGS)' -ldflags '-linkmode external -extldflags "-static" $(LDFLAGS)' -targets '$(LINUX_ARCHS)' -out gitea-$(VERSION) .
-ifneq ($(DRONE_TAG),)
-	cp /build/* $(DIST)/binaries
-endif
 
 .PHONY: release-darwin
 release-darwin: | $(DIST_DIRS)
 	CGO_CFLAGS="$(CGO_CFLAGS)" $(GO) run $(XGO_PACKAGE) -go $(XGO_VERSION) -dest $(DIST)/binaries -tags 'netgo osusergo $(TAGS)' -ldflags '$(LDFLAGS)' -targets 'darwin-10.12/amd64,darwin-10.12/arm64' -out gitea-$(VERSION) .
-ifneq ($(DRONE_TAG),)
-	cp /build/* $(DIST)/binaries
-endif
 
 .PHONY: release-freebsd
 release-freebsd: | $(DIST_DIRS)
 	CGO_CFLAGS="$(CGO_CFLAGS)" $(GO) run $(XGO_PACKAGE) -go $(XGO_VERSION) -dest $(DIST)/binaries -tags 'netgo osusergo $(TAGS)' -ldflags '$(LDFLAGS)' -targets 'freebsd/amd64' -out gitea-$(VERSION) .
-ifneq ($(DRONE_TAG),)
-	cp /build/* $(DIST)/binaries
-endif
 
 .PHONY: release-copy
 release-copy: | $(DIST_DIRS)
@@ -874,7 +870,7 @@ release-check: | $(DIST_DIRS)
 
 .PHONY: release-compress
 release-compress: | $(DIST_DIRS)
-	cd $(DIST)/release/; for file in `find . -type f -name "*"`; do echo "compressing $${file}" && $(GO) run $(GXZ_PAGAGE) -k -9 $${file}; done;
+	cd $(DIST)/release/; for file in `find . -type f -name "*"`; do echo "compressing $${file}" && $(GO) run $(GXZ_PACKAGE) -k -9 $${file}; done;
 
 .PHONY: release-sources
 release-sources: | $(DIST_DIRS)
@@ -895,7 +891,10 @@ docs:
 	cd docs; bash scripts/trans-copy.sh;
 
 .PHONY: deps
-deps: deps-frontend deps-backend deps-tools
+deps: deps-frontend deps-backend deps-tools deps-py
+
+.PHONY: deps-py
+deps-py: .venv
 
 .PHONY: deps-frontend
 deps-frontend: node_modules
@@ -910,7 +909,7 @@ deps-tools:
 	$(GO) install $(EDITORCONFIG_CHECKER_PACKAGE)
 	$(GO) install $(GOFUMPT_PACKAGE)
 	$(GO) install $(GOLANGCI_LINT_PACKAGE)
-	$(GO) install $(GXZ_PAGAGE)
+	$(GO) install $(GXZ_PACKAGE)
 	$(GO) install $(MISSPELL_PACKAGE)
 	$(GO) install $(SWAGGER_PACKAGE)
 	$(GO) install $(XGO_PACKAGE)
@@ -922,12 +921,26 @@ node_modules: package-lock.json
 	npm install --no-save
 	@touch node_modules
 
-.PHONY: npm-update
-npm-update: node-check | node_modules
-	npx updates -cu
+.venv: poetry.lock
+	poetry install --no-root
+	@touch .venv
+
+.PHONY: update
+update: update-js update-py
+
+.PHONY: update-js
+update-js: node-check | node_modules
+	npx updates -u -f package.json
 	rm -rf node_modules package-lock.json
 	npm install --package-lock
 	@touch node_modules
+
+.PHONY: update-py
+update-py: node-check | node_modules
+	npx updates -u -f pyproject.toml
+	rm -rf .venv poetry.lock
+	poetry install
+	@touch .venv
 
 .PHONY: fomantic
 fomantic:

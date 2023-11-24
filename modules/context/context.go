@@ -5,6 +5,7 @@
 package context
 
 import (
+	"context"
 	"html"
 	"html/template"
 	"io"
@@ -21,7 +22,9 @@ import (
 	"code.gitea.io/gitea/modules/setting"
 	"code.gitea.io/gitea/modules/templates"
 	"code.gitea.io/gitea/modules/translation"
+	"code.gitea.io/gitea/modules/web"
 	"code.gitea.io/gitea/modules/web/middleware"
+	web_types "code.gitea.io/gitea/modules/web/types"
 
 	"gitea.com/go-chi/cache"
 	"gitea.com/go-chi/session"
@@ -29,13 +32,15 @@ import (
 
 // Render represents a template render
 type Render interface {
-	TemplateLookup(tmpl string) (templates.TemplateExecutor, error)
-	HTML(w io.Writer, status int, name string, data any) error
+	TemplateLookup(tmpl string, templateCtx context.Context) (templates.TemplateExecutor, error)
+	HTML(w io.Writer, status int, name string, data any, templateCtx context.Context) error
 }
 
 // Context represents context of a request.
 type Context struct {
 	*Base
+
+	TemplateContext TemplateContext
 
 	Render   Render
 	PageData map[string]any // data used by JavaScript modules in one page, it's `window.config.pageData`
@@ -56,6 +61,14 @@ type Context struct {
 	Repo    *Repository
 	Org     *Organization
 	Package *Package
+}
+
+type TemplateContext map[string]any
+
+func init() {
+	web.RegisterResponseStatusProvider[*Context](func(req *http.Request) web_types.ResponseStatusProvider {
+		return req.Context().Value(WebContextKey).(*Context)
+	})
 }
 
 // TrHTMLEscapeArgs runs ".Locale.Tr()" but pre-escapes all arguments with html.EscapeString.
@@ -94,6 +107,29 @@ func GetValidateContext(req *http.Request) (ctx *ValidateContext) {
 	return ctx
 }
 
+func NewTemplateContextForWeb(ctx *Context) TemplateContext {
+	tmplCtx := NewTemplateContext(ctx)
+	tmplCtx["Locale"] = ctx.Base.Locale
+	tmplCtx["AvatarUtils"] = templates.NewAvatarUtils(ctx)
+	return tmplCtx
+}
+
+func NewWebContext(base *Base, render Render, session session.Store) *Context {
+	ctx := &Context{
+		Base:    base,
+		Render:  render,
+		Session: session,
+
+		Cache: mc.GetCache(),
+		Link:  setting.AppSubURL + strings.TrimSuffix(base.Req.URL.EscapedPath(), "/"),
+		Repo:  &Repository{PullRequest: &PullRequest{}},
+		Org:   &Organization{},
+	}
+	ctx.TemplateContext = NewTemplateContextForWeb(ctx)
+	ctx.Flash = &middleware.Flash{DataStore: ctx, Values: url.Values{}}
+	return ctx
+}
+
 // Contexter initializes a classic context for a request.
 func Contexter() func(next http.Handler) http.Handler {
 	rnd := templates.HTMLRenderer()
@@ -114,22 +150,13 @@ func Contexter() func(next http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(resp http.ResponseWriter, req *http.Request) {
 			base, baseCleanUp := NewBaseContext(resp, req)
-			ctx := &Context{
-				Base:    base,
-				Cache:   mc.GetCache(),
-				Link:    setting.AppSubURL + strings.TrimSuffix(req.URL.EscapedPath(), "/"),
-				Render:  rnd,
-				Session: session.GetSession(req),
-				Repo:    &Repository{PullRequest: &PullRequest{}},
-				Org:     &Organization{},
-			}
 			defer baseCleanUp()
+			ctx := NewWebContext(base, rnd, session.GetSession(req))
 
 			ctx.Data.MergeFrom(middleware.CommonTemplateContextData())
-			ctx.Data["Context"] = &ctx
+			ctx.Data["Context"] = ctx // TODO: use "ctx" in template and remove this
 			ctx.Data["CurrentURL"] = setting.AppSubURL + req.URL.RequestURI()
 			ctx.Data["Link"] = ctx.Link
-			ctx.Data["locale"] = ctx.Locale
 
 			// PageData is passed by reference, and it will be rendered to `window.config.pageData` in `head.tmpl` for JavaScript modules
 			ctx.PageData = map[string]any{}
@@ -154,8 +181,7 @@ func Contexter() func(next http.Handler) http.Handler {
 				}
 			}
 
-			// prepare an empty Flash message for current request
-			ctx.Flash = &middleware.Flash{DataStore: ctx, Values: url.Values{}}
+			// if there are new messages in the ctx.Flash, write them into cookie
 			ctx.Resp.Before(func(resp ResponseWriter) {
 				if val := ctx.Flash.Encode(); val != "" {
 					middleware.SetSiteCookie(ctx.Resp, CookieNameFlash, val, 0)
@@ -217,4 +243,16 @@ func (ctx *Context) GetErrMsg() string {
 		msg = "invalid form data"
 	}
 	return msg
+}
+
+func (ctx *Context) JSONRedirect(redirect string) {
+	ctx.JSON(http.StatusOK, map[string]any{"redirect": redirect})
+}
+
+func (ctx *Context) JSONOK() {
+	ctx.JSON(http.StatusOK, map[string]any{"ok": true}) // this is only a dummy response, frontend seldom uses it
+}
+
+func (ctx *Context) JSONError(msg string) {
+	ctx.JSON(http.StatusBadRequest, map[string]any{"errorMessage": msg})
 }

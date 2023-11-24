@@ -313,7 +313,7 @@ directory and will overwrite any existing files.
   - `--ecdsa-curve value`: ECDSA curve to use to generate a key. Optional. Valid options
     are P224, P256, P384, P521.
   - `--rsa-bits value`: Size of RSA key to generate. Optional. Ignored if --ecdsa-curve is
-    set. (default: 2048).
+    set. (default: 3072).
   - `--start-date value`: Creation date. Optional. (format: `Jan 1 15:04:05 2011`).
   - `--duration value`: Duration which the certificate is valid for. Optional. (default: 8760h0m0s)
   - `--ca`: If provided, this cert generates it's own certificate authority. Optional.
@@ -334,9 +334,9 @@ in the current directory.
   - `--skip-attachment-data`: Skip dumping of attachment data. Optional.
   - `--skip-package-data`: Skip dumping of package data. Optional.
   - `--skip-log`: Skip dumping of log data. Optional.
-  - `--database`, `-d`: Specify the database SQL syntax. Optional.
+  - `--database`, `-d`: Specify the database SQL syntax. Optional (supported arguments: sqlite3, mysql, mssql, postgres).
   - `--verbose`, `-V`: If provided, shows additional details. Optional.
-  - `--type`: Set the dump output format. Optional. (default: zip)
+  - `--type`: Set the dump output format. Optional. (formats: zip, tar, tar.sz, tar.gz, tar.xz, tar.bz2, tar.br, tar.lz4, tar.zst default: zip).
 - Examples:
   - `gitea dump`
   - `gitea dump --verbose`
@@ -384,35 +384,18 @@ NB: Gitea must be running for this command to succeed.
 Migrates the database. This command can be used to run other commands before starting the server for the first time.
 This command is idempotent.
 
-### convert
+### doctor check
 
-Converts an existing MySQL database from utf8 to utf8mb4.
+Diagnose and potentially fix problems with the current Gitea instance.
+Several checks are run by default, but additional ones can be run:
 
-### doctor
+- `gitea doctor check --list` - will list all the available checks
+- `gitea doctor check --all` - will run all available checks
+- `gitea doctor check --default` - will run the default checks
+- `gitea doctor check --run [check(s),]...` - will run the named checks
 
-Diagnose the problems of current Gitea instance according the given configuration.
-Currently there are a check list below:
-
-- Check if OpenSSH authorized_keys file id correct
-  When your Gitea instance support OpenSSH, your Gitea instance binary path will be written to `authorized_keys`
-  when there is any public key added or changed on your Gitea instance.
-  Sometimes if you moved or renamed your Gitea binary when upgrade and you haven't run `Update the '.ssh/authorized_keys' file with Gitea SSH keys. (Not needed for the built-in SSH server.)` on your Admin Panel. Then all pull/push via SSH will not be work.
-  This check will help you to check if it works well.
-
-For contributors, if you want to add more checks, you can write a new function like `func(ctx *cli.Context) ([]string, error)` and
-append it to `doctor.go`.
-
-```go
-var checklist = []check{
-	{
-		title: "Check if OpenSSH authorized_keys file id correct",
-		f:     runDoctorLocationMoved,
-    },
-    // more checks please append here
-}
-```
-
-This function will receive a command line context and return a list of details about the problems or error.
+Some problems can be automatically fixed by passing the `--fix` option.
+Extra logging can be set with `--log-file=...`.
 
 #### doctor recreate-table
 
@@ -420,7 +403,7 @@ Sometimes when there are migrations the old columns and default values may be le
 unchanged in the database schema. This may lead to warning such as:
 
 ```
-2020/08/02 11:32:29 ...rm/session_schema.go:360:Sync2() [W] Table user Column keep_activity_private db default is , struct default is 0
+2020/08/02 11:32:29 ...rm/session_schema.go:360:Sync() [W] Table user Column keep_activity_private db default is , struct default is 0
 ```
 
 You can cause Gitea to recreate these tables and copy the old data into the new table
@@ -443,6 +426,10 @@ gitea doctor recreate-table
 ```
 
 It is highly recommended to back-up your database before running these commands.
+
+### doctor convert
+
+Converts a MySQL database from utf8 to utf8mb4 or a MSSQL database from varchar to nvarchar.
 
 ### manager
 
